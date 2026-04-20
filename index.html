@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>基金数据查询 - 净值计算版（稳定修复）</title>
+    <title>基金数据查询 - 累计净值计算版（校准官方）</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: #f5f7fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; padding: 20px; color: #1f2d3d; }
@@ -45,7 +45,7 @@
             </div>
             <button class="btn-query" id="searchBtn">🔍 查询基金</button>
         </div>
-        <div class="footnote" style="border:none; padding:12px 0 0 0;">数据源：天天基金净值数据（纯前端计算，无需代理）</div>
+        <div class="footnote" style="border:none; padding:12px 0 0 0;">数据源：天天基金累计净值（校准官方涨幅）</div>
     </div>
 
     <div id="fundInfoArea" class="info-card" style="display: none;"></div>
@@ -79,7 +79,7 @@
 </div>
 
 <script>
-    // 加载基金数据（使用 pingzhongdata.js，无跨域问题）
+    // 加载基金数据（使用累计净值 Data_ACWorthTrend）
     function loadFundData(code) {
         return new Promise((resolve, reject) => {
             const script = document.createElement('script');
@@ -89,9 +89,8 @@
                 if (!resolved) reject(new Error('请求超时，请检查网络或基金代码'));
             }, 15000);
             
-            // 备份并清理可能存在的全局变量
             const backup = {};
-            const vars = ['fS_name', 'Data_netWorthTrend', 'Data_fluctuationScale'];
+            const vars = ['fS_name', 'Data_ACWorthTrend', 'Data_fluctuationScale'];
             vars.forEach(v => { if (window[v] !== undefined) { backup[v] = window[v]; delete window[v]; } });
             
             script.onload = () => {
@@ -99,24 +98,23 @@
                 clearTimeout(timeout);
                 try {
                     const name = window.fS_name || '未知基金';
-                    let netWorth = window.Data_netWorthTrend || [];
+                    // 优先使用累计净值 Data_ACWorthTrend，若不存在则回退单位净值 Data_netWorthTrend
+                    let worthData = window.Data_ACWorthTrend || window.Data_netWorthTrend || [];
                     let scale = null;
                     if (window.Data_fluctuationScale && window.Data_fluctuationScale.series && window.Data_fluctuationScale.series.length) {
                         const last = window.Data_fluctuationScale.series[window.Data_fluctuationScale.series.length - 1];
                         scale = last.y;
                     }
-                    // 清理全局变量
                     vars.forEach(v => delete window[v]);
                     Object.assign(window, backup);
                     
-                    // 确保净值数组不为空且格式正确
-                    if (!Array.isArray(netWorth) || netWorth.length === 0) {
-                        throw new Error('净值数据为空或格式错误');
-                    }
-                    // 过滤掉无效数据（没有 x 或 y 的项）
-                    netWorth = netWorth.filter(item => item && typeof item.x === 'number' && typeof item.y === 'number');
-                    if (netWorth.length === 0) throw new Error('没有有效的净值数据');
+                    if (!Array.isArray(worthData) || worthData.length === 0) throw new Error('净值数据为空');
+                    // 过滤无效数据
+                    worthData = worthData.filter(item => item && typeof item[0] === 'number' && typeof item[1] === 'number');
+                    if (worthData.length === 0) throw new Error('没有有效的净值数据');
                     
+                    // 转换为对象数组 { x: 时间戳, y: 累计净值 }
+                    const netWorth = worthData.map(item => ({ x: item[0], y: item[1] }));
                     resolve({ name, netWorth, scale });
                 } catch (e) {
                     reject(e);
@@ -134,49 +132,60 @@
         });
     }
 
-    // 辅助：获取最近第 N 个交易日的净值（N=0 为最新）
-    function getNthLatestNet(sorted, n) {
-        if (n < 0 || n >= sorted.length) return null;
-        return sorted[sorted.length - 1 - n].y;
+    // 根据时间戳（毫秒）获取最接近且不大于该时间的净值（二分查找）
+    function getClosestNetValue(sorted, targetTimestamp) {
+        if (sorted.length === 0) return null;
+        let left = 0, right = sorted.length - 1;
+        let result = null;
+        while (left <= right) {
+            const mid = Math.floor((left + right) / 2);
+            if (sorted[mid].x <= targetTimestamp) {
+                result = sorted[mid];
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+        return result ? result.y : null;
     }
 
-    function calcReturn(newNav, oldNav) {
+    // 计算两个日期间的涨幅（自然日）
+    function calcReturnByDays(sorted, latestDate, daysAgo) {
+        const targetTime = latestDate.getTime() - daysAgo * 86400000;
+        const oldNav = getClosestNetValue(sorted, targetTime);
+        const latestNav = sorted[sorted.length - 1].y;
         if (oldNav === null || oldNav === 0) return null;
-        return (newNav - oldNav) / oldNav * 100;
+        return (latestNav - oldNav) / oldNav * 100;
     }
 
-    // 计算阶段涨幅（基于交易日偏移，近似官方算法）
+    // 计算今年以来涨幅
+    function computeYtdReturn(sorted, latestDate) {
+        const currentYear = latestDate.getFullYear();
+        const yearStart = new Date(currentYear, 0, 1);
+        const startNav = getClosestNetValue(sorted, yearStart.getTime());
+        const latestNav = sorted[sorted.length - 1].y;
+        if (startNav === null || startNav === 0) return null;
+        return (latestNav - startNav) / startNav * 100;
+    }
+
+    // 阶段涨幅（自然日）
     function computePhaseReturns(sorted) {
-        const latest = sorted[sorted.length - 1];
-        const latestNav = latest.y;
-        const getNav = (offset) => getNthLatestNet(sorted, offset);
-        // 交易日偏移量（近1周约5个交易日，近1月约22，近3月约66，近6月约132，近1年约244，近2年约488，近3年约732）
+        const latestDate = new Date(sorted[sorted.length - 1].x);
         return {
-            one_week: calcReturn(latestNav, getNav(5)),
-            one_month: calcReturn(latestNav, getNav(22)),
-            three_month: calcReturn(latestNav, getNav(66)),
-            six_month: calcReturn(latestNav, getNav(132)),
-            year_to_date: computeYtdReturn(sorted, latest),
-            one_year: calcReturn(latestNav, getNav(244)),
-            two_year: calcReturn(latestNav, getNav(488)),
-            three_year: calcReturn(latestNav, getNav(732))
+            one_week: calcReturnByDays(sorted, latestDate, 7),
+            one_month: calcReturnByDays(sorted, latestDate, 30),
+            three_month: calcReturnByDays(sorted, latestDate, 90),
+            six_month: calcReturnByDays(sorted, latestDate, 180),
+            year_to_date: computeYtdReturn(sorted, latestDate),
+            one_year: calcReturnByDays(sorted, latestDate, 365),
+            two_year: calcReturnByDays(sorted, latestDate, 730),
+            three_year: calcReturnByDays(sorted, latestDate, 1095)
         };
     }
 
-    function computeYtdReturn(sorted, latest) {
-        const latestYear = new Date(latest.x).getFullYear();
-        for (let i = 0; i < sorted.length; i++) {
-            const d = new Date(sorted[i].x);
-            if (d.getFullYear() === latestYear) {
-                return calcReturn(latest.y, sorted[i].y);
-            }
-        }
-        return null;
-    }
-
-    // 计算季度涨幅（自然季度）
+    // 季度涨幅（自然季度）
     function computeQuarterReturns(sorted) {
-        const quarters = new Map(); // key: "YYYY年Q季度"
+        const quarters = new Map();
         for (let i = 0; i < sorted.length; i++) {
             const d = new Date(sorted[i].x);
             const year = d.getFullYear();
@@ -191,23 +200,22 @@
         }
         const result = [];
         for (let [quarter, { firstNav, lastNav }] of quarters.entries()) {
-            const ret = calcReturn(lastNav, firstNav);
-            result.push({ quarter, return_rate: ret !== null ? ret.toFixed(2) : '--' });
+            const ret = (lastNav - firstNav) / firstNav * 100;
+            result.push({ quarter, return_rate: isNaN(ret) ? '--' : ret.toFixed(2) });
         }
-        // 排序：按年份和季度倒序（最新在上），增加防御性
+        // 按时间倒序
         result.sort((a, b) => {
-            const getVal = (qStr) => {
-                if (!qStr) return 0;
-                const m = qStr.match(/(\d{4})年(\d+)季度/);
-                if (m) return parseInt(m[1]) * 10 + parseInt(m[2]);
-                return 0;
+            const getVal = (q) => {
+                if (!q) return 0;
+                const m = q.match(/(\d{4})年(\d+)季度/);
+                return m ? parseInt(m[1]) * 10 + parseInt(m[2]) : 0;
             };
             return getVal(b.quarter) - getVal(a.quarter);
         });
         return result;
     }
 
-    // 计算年度涨幅
+    // 年度涨幅
     function computeYearReturns(sorted) {
         const years = new Map();
         for (let i = 0; i < sorted.length; i++) {
@@ -222,14 +230,14 @@
         }
         const result = [];
         for (let [year, { firstNav, lastNav }] of years.entries()) {
-            const ret = calcReturn(lastNav, firstNav);
-            result.push({ year: year.toString(), return_rate: ret !== null ? ret.toFixed(2) : '--' });
+            const ret = (lastNav - firstNav) / firstNav * 100;
+            result.push({ year: year.toString(), return_rate: isNaN(ret) ? '--' : ret.toFixed(2) });
         }
         result.sort((a, b) => parseInt(b.year) - parseInt(a.year));
         return result;
     }
 
-    // 渲染函数
+    // 渲染函数（与之前相同，略）
     function formatPercent(value) {
         if (value === undefined || value === null || value === '') return '<span class="neutral">--</span>';
         let num = parseFloat(value);

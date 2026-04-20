@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>基金数据查询 - 天天基金官方版（完整数据）</title>
+    <title>基金数据查询 - 天天基金官方版（完整解析）</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: #f5f7fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; padding: 20px; color: #1f2d3d; }
@@ -93,7 +93,7 @@
                 const data = window[varName];
                 if (old !== undefined) window[varName] = old; else delete window[varName];
                 script.remove();
-                if (data) resolve(data);
+                if (data && data.content) resolve(data);
                 else reject(new Error('数据为空'));
             };
             script.onerror = () => { clearTimeout(timeout); script.remove(); reject(new Error('网络错误')); };
@@ -102,11 +102,10 @@
         });
     }
 
-    // ==================== 阶段涨幅解析 ====================
+    // ==================== 阶段涨幅解析（基于 ul 结构） ====================
     function parsePhaseData(apidata) {
-        const content = apidata.content || '';
         const div = document.createElement('div');
-        div.innerHTML = content;
+        div.innerHTML = apidata.content;
         const items = [];
         const uls = div.querySelectorAll('ul');
         for (let ul of uls) {
@@ -114,12 +113,12 @@
             if (!titleEl) continue;
             const period = titleEl.innerText.trim();
             if (period === '') continue;
-            const torList = ul.querySelectorAll('.tor');
+            const tors = ul.querySelectorAll('.tor');
             let fundRet = '', avgRet = '', hs300Ret = '';
-            if (torList.length >= 3) {
-                fundRet = torList[0].innerText.trim();
-                avgRet = torList[1].innerText.trim();
-                hs300Ret = torList[2].innerText.trim();
+            if (tors.length >= 3) {
+                fundRet = tors[0].innerText.trim();
+                avgRet = tors[1].innerText.trim();
+                hs300Ret = tors[2].innerText.trim();
             }
             const tlpmEl = ul.querySelector('.tlpm');
             let rank = tlpmEl ? tlpmEl.innerText.trim() : '';
@@ -131,116 +130,65 @@
         return order.map(p => items.find(i => i.period === p) || { period: p, fundRet: '', avgRet: '', hs300Ret: '', rank: '', quartile: '' });
     }
 
-    // ==================== 季度涨幅解析（基于 HTML 表格） ====================
-    function parseQuarterData(qapidata) {
-        const content = qapidata.content || '';
-        // 提取表格行
-        const lines = content.split('\n');
-        // 找到表头行（包含“阶段涨幅”等）
-        let headers = [];
-        let fundRow = [], avgRow = [], hs300Row = [], rankRow = [], quartileRow = [];
-        for (let line of lines) {
-            if (line.includes('阶段涨幅')) {
-                // 提取数据列
-                const match = line.match(/阶段涨幅\s*([\d\.\-%]+)/);
-                if (match) fundRow = extractNumbersFromLine(line);
-            } else if (line.includes('同类平均')) {
-                avgRow = extractNumbersFromLine(line);
-            } else if (line.includes('沪深300')) {
-                hs300Row = extractNumbersFromLine(line);
-            } else if (line.includes('同类排名')) {
-                rankRow = extractRankFromLine(line);
-            } else if (line.includes('四分位排名')) {
-                quartileRow = extractQuartileFromLine(line);
+    // ==================== 通用表格解析（季度/年度） ====================
+    function parseTableData(htmlContent) {
+        const div = document.createElement('div');
+        div.innerHTML = htmlContent;
+        const table = div.querySelector('table');
+        if (!table) return [];
+
+        // 获取表头（季度/年度名称）
+        const thead = table.querySelector('thead');
+        const headers = [];
+        if (thead) {
+            const ths = thead.querySelectorAll('th');
+            for (let i = 1; i < ths.length; i++) { // 跳过第一个空列
+                headers.push(ths[i].innerText.trim());
             }
         }
-        // 获取季度名称（从表头或第一行）
-        let quarters = [];
-        const headerMatch = content.match(/<th[^>]*>([^<]+)<\/th>/g);
-        if (headerMatch) {
-            for (let h of headerMatch) {
-                let q = h.replace(/<[^>]+>/g, '').trim();
-                if (q && !q.includes('季度') && !q.includes('涨幅')) quarters.push(q);
-                else if (q && (q.includes('季度') || q.includes('年度'))) quarters.push(q);
+
+        // 获取数据行
+        const tbody = table.querySelector('tbody');
+        if (!tbody) return [];
+
+        // 定义需要提取的行标签
+        const rowLabels = ['阶段涨幅', '同类平均', '沪深300', '同类排名', '四分位排名'];
+        const rowsData = {};
+
+        for (let row of tbody.querySelectorAll('tr')) {
+            const firstTd = row.querySelector('td.tdgray');
+            if (!firstTd) continue;
+            const label = firstTd.innerText.trim();
+            if (!rowLabels.includes(label)) continue;
+
+            const cells = row.querySelectorAll('td:not(.tdgray)');
+            const values = [];
+            for (let cell of cells) {
+                // 提取纯文本，处理内部图标（如四分位排名中的表格）
+                const clone = cell.cloneNode(true);
+                clone.querySelectorAll('.infoTips, .tipsBubble, .tbsi, .tbsi table, .tbsi td, .tbsi tr').forEach(el => el.remove());
+                let text = clone.innerText.trim();
+                // 如果文本为空，尝试提取 .sifen 内的文本
+                if (!text) {
+                    const sifen = cell.querySelector('.sifen');
+                    if (sifen) text = sifen.innerText.trim();
+                }
+                values.push(text);
             }
+            rowsData[label] = values;
         }
-        if (quarters.length === 0) {
-            // 降级：从阶段涨幅行提取列数
-            quarters = fundRow.map((_, idx) => `季度${idx+1}`);
-        }
+
+        // 组装结果
         const result = [];
-        const len = Math.max(quarters.length, fundRow.length, avgRow.length, hs300Row.length, rankRow.length, quartileRow.length);
-        for (let i = 0; i < len; i++) {
+        const maxLen = headers.length;
+        for (let i = 0; i < maxLen; i++) {
             result.push({
-                period: quarters[i] || '--',
-                fundRet: fundRow[i] || '',
-                avgRet: avgRow[i] || '',
-                hs300Ret: hs300Row[i] || '',
-                rank: rankRow[i] || '',
-                quartile: quartileRow[i] || ''
-            });
-        }
-        return result;
-    }
-
-    // 辅助：从一行中提取百分比数字（例如 "3.44%  10.27%  8.22% ..."）
-    function extractNumbersFromLine(line) {
-        const regex = /([\d\.\-]+%)/g;
-        const matches = line.match(regex);
-        if (matches) return matches.map(m => m.replace('%', ''));
-        return [];
-    }
-
-    // 提取同类排名（如 "427|2333"）
-    function extractRankFromLine(line) {
-        const regex = /(\d+\|\d+)/g;
-        const matches = line.match(regex);
-        return matches || [];
-    }
-
-    // 提取四分位排名（如 "优秀", "良好" 等）
-    function extractQuartileFromLine(line) {
-        const words = line.split(/\s+/);
-        const quartiles = [];
-        for (let w of words) {
-            if (w === '优秀' || w === '良好' || w === '一般' || w === '不佳') quartiles.push(w);
-        }
-        return quartiles;
-    }
-
-    // ==================== 年度涨幅解析（基于空格分隔的文本） ====================
-    function parseYearData(yapidata) {
-        const content = yapidata.content || '';
-        const lines = content.split('\n').filter(l => l.trim().length > 0);
-        let years = [], fundRow = [], avgRow = [], hs300Row = [], rankRow = [], quartileRow = [];
-        for (let line of lines) {
-            line = line.trim();
-            if (line.includes('年度')) {
-                // 提取年份
-                const yearMatch = line.match(/(\d{4})年度/g);
-                if (yearMatch) years = yearMatch.map(y => y.replace('年度', ''));
-            } else if (line.startsWith('阶段涨幅')) {
-                fundRow = extractNumbersFromLine(line);
-            } else if (line.startsWith('同类平均')) {
-                avgRow = extractNumbersFromLine(line);
-            } else if (line.startsWith('沪深300')) {
-                hs300Row = extractNumbersFromLine(line);
-            } else if (line.startsWith('同类排名')) {
-                rankRow = extractRankFromLine(line);
-            } else if (line.startsWith('四分位排名')) {
-                quartileRow = extractQuartileFromLine(line);
-            }
-        }
-        const result = [];
-        const len = Math.max(years.length, fundRow.length, avgRow.length, hs300Row.length, rankRow.length, quartileRow.length);
-        for (let i = 0; i < len; i++) {
-            result.push({
-                period: years[i] || '--',
-                fundRet: fundRow[i] || '',
-                avgRet: avgRow[i] || '',
-                hs300Ret: hs300Row[i] || '',
-                rank: rankRow[i] || '',
-                quartile: quartileRow[i] || ''
+                period: headers[i] || '--',
+                fundRet: rowsData['阶段涨幅']?.[i] || '',
+                avgRet: rowsData['同类平均']?.[i] || '',
+                hs300Ret: rowsData['沪深300']?.[i] || '',
+                rank: rowsData['同类排名']?.[i] || '',
+                quartile: rowsData['四分位排名']?.[i] || ''
             });
         }
         return result;
@@ -289,7 +237,7 @@
                 <td>${formatPercent(item.hs300Ret)}</td>
                 <td>${escapeHtml(item.rank)}</td>
                 <td>${escapeHtml(item.quartile)}</td>
-            </tr>`;
+            </table>`;
         }
         tbody.innerHTML = html;
     }
@@ -329,8 +277,8 @@
 
         try { fundInfo = await fetchFundBaseInfo(code); } catch (e) { errors.push('基础信息: ' + e.message); }
         try { const raw = await loadScript(`${baseUrl}?type=jdzf&code=${code}`, 'apidata'); phaseData = parsePhaseData(raw); } catch (e) { errors.push('阶段涨幅: ' + e.message); }
-        try { const raw = await loadScript(`${baseUrl}?type=quarterzf&code=${code}`, 'qapidata'); quarterData = parseQuarterData(raw); } catch (e) { errors.push('季度涨幅: ' + e.message); }
-        try { const raw = await loadScript(`${baseUrl}?type=yearzf&code=${code}`, 'yapidata'); yearData = parseYearData(raw); } catch (e) { errors.push('年度涨幅: ' + e.message); }
+        try { const raw = await loadScript(`${baseUrl}?type=quarterzf&code=${code}`, 'qapidata'); quarterData = parseTableData(raw.content); } catch (e) { errors.push('季度涨幅: ' + e.message); }
+        try { const raw = await loadScript(`${baseUrl}?type=yearzf&code=${code}`, 'yapidata'); yearData = parseTableData(raw.content); } catch (e) { errors.push('年度涨幅: ' + e.message); }
 
         if (!phaseData.length && !quarterData.length && !yearData.length && !fundInfo) {
             showGlobalError(`基金 ${code} 数据拉取失败，可能代码不存在。${errors.join('; ')}`);

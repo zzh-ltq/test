@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>基金数据查询 - 净值计算版（无需代理）</title>
+    <title>基金数据查询 - 净值计算版（稳定修复）</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: #f5f7fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; padding: 20px; color: #1f2d3d; }
@@ -79,7 +79,7 @@
 </div>
 
 <script>
-    // 从 pingzhongdata.js 加载基金数据（无跨域问题）
+    // 加载基金数据（使用 pingzhongdata.js，无跨域问题）
     function loadFundData(code) {
         return new Promise((resolve, reject) => {
             const script = document.createElement('script');
@@ -99,7 +99,7 @@
                 clearTimeout(timeout);
                 try {
                     const name = window.fS_name || '未知基金';
-                    const netWorth = window.Data_netWorthTrend || [];
+                    let netWorth = window.Data_netWorthTrend || [];
                     let scale = null;
                     if (window.Data_fluctuationScale && window.Data_fluctuationScale.series && window.Data_fluctuationScale.series.length) {
                         const last = window.Data_fluctuationScale.series[window.Data_fluctuationScale.series.length - 1];
@@ -108,7 +108,15 @@
                     // 清理全局变量
                     vars.forEach(v => delete window[v]);
                     Object.assign(window, backup);
-                    if (netWorth.length === 0) throw new Error('净值数据为空');
+                    
+                    // 确保净值数组不为空且格式正确
+                    if (!Array.isArray(netWorth) || netWorth.length === 0) {
+                        throw new Error('净值数据为空或格式错误');
+                    }
+                    // 过滤掉无效数据（没有 x 或 y 的项）
+                    netWorth = netWorth.filter(item => item && typeof item.x === 'number' && typeof item.y === 'number');
+                    if (netWorth.length === 0) throw new Error('没有有效的净值数据');
+                    
                     resolve({ name, netWorth, scale });
                 } catch (e) {
                     reject(e);
@@ -186,10 +194,13 @@
             const ret = calcReturn(lastNav, firstNav);
             result.push({ quarter, return_rate: ret !== null ? ret.toFixed(2) : '--' });
         }
-        result.sort((a,b) => {
-            const getVal = (q) => {
-                const m = q.quarter.match(/(\d{4})年(\d+)季度/);
-                return m ? parseInt(m[1]) * 10 + parseInt(m[2]) : 0;
+        // 排序：按年份和季度倒序（最新在上），增加防御性
+        result.sort((a, b) => {
+            const getVal = (qStr) => {
+                if (!qStr) return 0;
+                const m = qStr.match(/(\d{4})年(\d+)季度/);
+                if (m) return parseInt(m[1]) * 10 + parseInt(m[2]);
+                return 0;
             };
             return getVal(b.quarter) - getVal(a.quarter);
         });
@@ -214,7 +225,7 @@
             const ret = calcReturn(lastNav, firstNav);
             result.push({ year: year.toString(), return_rate: ret !== null ? ret.toFixed(2) : '--' });
         }
-        result.sort((a,b) => parseInt(b.year) - parseInt(a.year));
+        result.sort((a, b) => parseInt(b.year) - parseInt(a.year));
         return result;
     }
 
@@ -259,14 +270,18 @@
         const tbody = document.getElementById('quarterBody');
         if (!quarters.length) { tbody.innerHTML = '<tr><td colspan="2" class="neutral">暂无季度数据</td></tr>'; return; }
         let html = '';
-        for (let q of quarters.slice(0, 12)) html += `<tr><td style="font-weight:500;">${escapeHtml(q.quarter)}</td><td>${formatPercent(q.return_rate)}</td></tr>`;
+        for (let q of quarters.slice(0, 12)) {
+            html += `<tr><td style="font-weight:500;">${escapeHtml(q.quarter)}</td><td>${formatPercent(q.return_rate)}</td></tr>`;
+        }
         tbody.innerHTML = html;
     }
     function renderYearReturns(years) {
         const tbody = document.getElementById('yearBody');
         if (!years.length) { tbody.innerHTML = '<tr><td colspan="2" class="neutral">暂无年度数据</td></tr>'; return; }
         let html = '';
-        for (let y of years) html += `<tr><td style="font-weight:500;">${escapeHtml(y.year)}</td><td>${formatPercent(y.return_rate)}</td></tr>`;
+        for (let y of years) {
+            html += `<tr><td style="font-weight:500;">${escapeHtml(y.year)}</td><td>${formatPercent(y.return_rate)}</td></tr>`;
+        }
         tbody.innerHTML = html;
     }
     function showLoadingState() {

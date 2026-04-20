@@ -1,51 +1,248 @@
-// 天天基金 API 代理函数
-exports.handler = async (event) => {
-  const { path, queryStringParameters } = event;
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基金查询 - 天天基金官方数据</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #f5f7fa; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; padding: 20px; }
+        .container { max-width: 1300px; margin: 0 auto; }
+        .search-card { background: white; border-radius: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); padding: 24px 28px; margin-bottom: 28px; }
+        .search-box { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; }
+        .input-group { flex: 2; min-width: 200px; }
+        .input-group label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; color: #2c3e50; }
+        .input-group input { width: 100%; padding: 12px 16px; font-size: 16px; border: 1px solid #dcdfe6; border-radius: 14px; outline: none; }
+        .input-group input:focus { border-color: #e6352c; box-shadow: 0 0 0 2px rgba(230,53,44,0.2); }
+        .btn-query { background: #e6352c; color: white; border: none; padding: 12px 32px; font-size: 16px; font-weight: 600; border-radius: 40px; cursor: pointer; transition: 0.2s; }
+        .btn-query:hover { background: #c42820; transform: translateY(-1px); }
+        .info-card { background: white; border-radius: 20px; padding: 20px 28px; margin-bottom: 28px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+        .fund-name { font-size: 1.6rem; font-weight: 700; }
+        .fund-code { font-size: 1rem; color: #7e8c8f; margin-left: 12px; }
+        .fund-scale { background: #fef2e9; padding: 8px 20px; border-radius: 40px; color: #e67e22; font-weight: 600; }
+        .fund-scale span { font-size: 1.3rem; font-weight: 800; margin-right: 4px; }
+        .section-card { background: white; border-radius: 20px; margin-bottom: 28px; overflow-x: auto; padding: 8px 0; }
+        .section-title { font-size: 1.3rem; font-weight: 700; padding: 18px 24px 8px 24px; border-left: 5px solid #e6352c; }
+        .fund-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 680px; }
+        .fund-table th { background: #f8fafc; padding: 14px 12px; text-align: center; font-weight: 600; border-bottom: 1px solid #e9edf2; }
+        .fund-table td { padding: 12px 12px; text-align: center; border-bottom: 1px solid #f0f2f5; }
+        .positive { color: #e6352c; font-weight: 500; }
+        .negative { color: #2d9c6b; font-weight: 500; }
+        .neutral { color: #7f8c8d; }
+        .loading-text { text-align: center; padding: 48px; color: #8a9cb0; }
+        .error-msg { background: #fee9e6; color: #c0392b; border-radius: 16px; padding: 14px 20px; margin: 16px 24px; text-align: center; }
+        .footnote { text-align: right; font-size: 12px; color: #95a5a6; padding: 12px 24px 20px; border-top: 1px solid #edf2f7; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="search-card">
+        <div class="search-box">
+            <div class="input-group">
+                <label>🐔 基金代码 (例如: 000001, 110011, 005827)</label>
+                <input type="text" id="fundCodeInput" placeholder="输入6位基金代码" value="018561" maxlength="6">
+            </div>
+            <button class="btn-query" id="searchBtn">🔍 查询基金</button>
+        </div>
+        <div class="footnote" style="border:none; padding:12px 0 0 0;">数据代理：Netlify Functions → 天天基金官方接口</div>
+    </div>
 
-  // 提取实际 API 路径（去掉 /api 前缀）
-  const apiPath = path.replace(/^\/api/, '');
-  let targetUrl = `https://fund.eastmoney.com${apiPath}`;
+    <div id="fundInfoArea" class="info-card" style="display: none;"></div>
+    <div id="phaseReturnArea" class="section-card" style="display: none;">
+        <div class="section-title">📈 阶段涨幅 (%)</div>
+        <div style="overflow-x: auto;"><table class="fund-table"><thead><tr><th>近1周</th><th>近1月</th><th>近3月</th><th>近6月</th><th>今年来</th><th>近1年</th><th>近2年</th><th>近3年</th></tr></thead><tbody id="phaseBody"><tr><td colspan="8" class="loading-text">加载中...</td></tr></tbody></table></div>
+    </div>
+    <div id="quarterReturnArea" class="section-card" style="display: none;">
+        <div class="section-title">📆 季度涨幅 (%)</div>
+        <div style="overflow-x: auto;"><table class="fund-table"><thead><tr><th>季度</th><th>阶段涨幅</th></tr></thead><tbody id="quarterBody"><tr><td colspan="2" class="loading-text">加载中...</td></tr></tbody></table></div>
+    </div>
+    <div id="yearReturnArea" class="section-card" style="display: none;">
+        <div class="section-title">📅 年度涨幅 (%)</div>
+        <div style="overflow-x: auto;"><table class="fund-table"><thead><tr><th>年度</th><th>阶段涨幅</th></tr></thead><tbody id="yearBody"><tr><td colspan="2" class="loading-text">加载中...</td></tr></tbody></table></div>
+    </div>
+</div>
 
-  if (queryStringParameters && Object.keys(queryStringParameters).length) {
-    const params = new URLSearchParams(queryStringParameters);
-    targetUrl += `?${params.toString()}`;
-  }
+<script>
+    const PROXY_PREFIX = '/api';
 
-  // 伪造请求头，避免 302 重定向
-  const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Referer': 'https://fund.eastmoney.com/',
-    'Accept': 'text/javascript, application/json, */*',
-  };
-
-  try {
-    const response = await fetch(targetUrl, { headers });
-    let text = await response.text();
-
-    // 去除 JSONP 包裹（如 callback({...})）
-    const jsonpMatch = text.match(/^[a-zA-Z0-9_]+\((.*)\);?$/);
-    if (jsonpMatch) text = jsonpMatch[1];
-
-    // 尝试解析 JSON
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      data = { error: 'Invalid JSON', preview: text.substring(0, 200) };
+    // 获取基金名称和规模（使用 pingzhongdata，无跨域问题）
+    async function fetchFundBaseInfo(code) {
+        const scriptUrl = `https://fund.eastmoney.com/pingzhongdata/${code}.js`;
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            let resolved = false;
+            const timeout = setTimeout(() => {
+                if (!resolved) reject(new Error('基础信息加载超时'));
+            }, 10000);
+            script.onload = () => {
+                resolved = true;
+                clearTimeout(timeout);
+                try {
+                    const name = window.fS_name || '未知基金';
+                    let scale = null;
+                    if (window.Data_fluctuationScale && window.Data_fluctuationScale.series && window.Data_fluctuationScale.series.length) {
+                        const last = window.Data_fluctuationScale.series[window.Data_fluctuationScale.series.length - 1];
+                        scale = last.y;
+                    }
+                    delete window.fS_name;
+                    delete window.Data_fluctuationScale;
+                    resolve({ name, scale });
+                } catch(e) { reject(e); }
+                finally { script.remove(); }
+            };
+            script.onerror = () => {
+                resolved = true;
+                clearTimeout(timeout);
+                reject(new Error('基金基础数据加载失败'));
+            };
+            script.src = scriptUrl;
+            document.head.appendChild(script);
+        });
     }
 
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    };
-  } catch (err) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Proxy failed', detail: err.message }),
-    };
-  }
-};
+    // 通用代理请求
+    async function proxyFetch(url) {
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error + (data.preview ? `: ${data.preview}` : ''));
+        return data;
+    }
+
+    // 阶段涨幅
+    async function fetchPhaseReturn(code) {
+        const url = `${PROXY_PREFIX}/f10/FundNetReturnAnalysis.ashx?code=${code}`;
+        const data = await proxyFetch(url);
+        if (data?.Data?.NetReturn?.length) {
+            const item = data.Data.NetReturn[0];
+            return {
+                one_week: item.SYL_1W,
+                one_month: item.SYL_1M,
+                three_month: item.SYL_3M,
+                six_month: item.SYL_6M,
+                year_to_date: item.SYL_YTD,
+                one_year: item.SYL_1Y,
+                two_year: item.SYL_2Y,
+                three_year: item.SYL_3Y
+            };
+        }
+        throw new Error('阶段涨幅数据为空');
+    }
+
+    // 季度涨幅
+    async function fetchQuarterReturn(code) {
+        const url = `${PROXY_PREFIX}/f10/FundDataAnalysis.ashx?type=jdph&code=${code}`;
+        const data = await proxyFetch(url);
+        if (data?.Data?.QuarterProfit) {
+            return data.Data.QuarterProfit.map(item => ({ quarter: item.QUARTER, return_rate: item.PROFIT }));
+        }
+        return [];
+    }
+
+    // 年度涨幅
+    async function fetchYearReturn(code) {
+        const url = `${PROXY_PREFIX}/f10/FundDataAnalysis.ashx?type=ndph&code=${code}`;
+        const data = await proxyFetch(url);
+        if (data?.Data?.YearProfit) {
+            return data.Data.YearProfit.map(item => ({ year: item.YEAR, return_rate: item.PROFIT }));
+        }
+        return [];
+    }
+
+    // 格式化与渲染（省略，保持与之前相同）
+    function formatPercent(v) {
+        if (v === undefined || v === null || v === '') return '<span class="neutral">--</span>';
+        let n = parseFloat(v);
+        if (isNaN(n)) return `<span class="neutral">${escapeHtml(String(v))}</span>`;
+        let f = n.toFixed(2);
+        if (n > 0) return `<span class="positive">+${f}%</span>`;
+        if (n < 0) return `<span class="negative">${f}%</span>`;
+        return `<span class="neutral">${f}%</span>`;
+    }
+    function escapeHtml(s) { if (!s) return ''; return String(s).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;'); }
+    function renderFundInfo(name, scale, code) {
+        let scaleText = scale ? (typeof scale === 'number' ? scale.toFixed(2) + ' 亿元' : scale) : '暂无规模数据';
+        document.getElementById('fundInfoArea').innerHTML = `<div style="display:flex; justify-content:space-between; width:100%;"><div><span class="fund-name">${escapeHtml(name)}</span><span class="fund-code">(${escapeHtml(code)})</span></div><div class="fund-scale">📊 最新规模 <span>${escapeHtml(scaleText)}</span></div></div>`;
+        document.getElementById('fundInfoArea').style.display = 'flex';
+    }
+    function renderPhaseReturn(p) {
+        const tbody = document.getElementById('phaseBody');
+        if (!p) { tbody.innerHTML = '<tr><td colspan="8" class="neutral">暂无数据</td></tr>'; return; }
+        const order = ['one_week','one_month','three_month','six_month','year_to_date','one_year','two_year','three_year'];
+        let html = '<tr>';
+        for (let k of order) html += `<td>${formatPercent(p[k])}</td>`;
+        html += '</tr>';
+        tbody.innerHTML = html;
+    }
+    function renderQuarterReturn(qs) {
+        const tbody = document.getElementById('quarterBody');
+        if (!qs.length) { tbody.innerHTML = '<tr><td colspan="2" class="neutral">暂无季度数据</td></tr>'; return; }
+        const sorted = [...qs].sort((a,b) => {
+            let get = q => { let m = q.quarter.match(/(\d{4})年(\d+)季度/); return m ? parseInt(m[1])*10+parseInt(m[2]) : 0; };
+            return get(b.quarter) - get(a.quarter);
+        });
+        let html = '';
+        for (let q of sorted.slice(0,12)) html += `<tr><td style="font-weight:500;">${escapeHtml(q.quarter)}</td><td>${formatPercent(q.return_rate)}</td></tr>`;
+        tbody.innerHTML = html;
+    }
+    function renderYearReturn(ys) {
+        const tbody = document.getElementById('yearBody');
+        if (!ys.length) { tbody.innerHTML = '<tr><td colspan="2" class="neutral">暂无年度数据</td></tr>'; return; }
+        const sorted = [...ys].sort((a,b) => parseInt(b.year) - parseInt(a.year));
+        let html = '';
+        for (let y of sorted) html += `<tr><td style="font-weight:500;">${escapeHtml(y.year)}</td><td>${formatPercent(y.return_rate)}</td></tr>`;
+        tbody.innerHTML = html;
+    }
+    function showLoading() {
+        document.getElementById('fundInfoArea').style.display = 'none';
+        document.getElementById('phaseReturnArea').style.display = 'block';
+        document.getElementById('quarterReturnArea').style.display = 'block';
+        document.getElementById('yearReturnArea').style.display = 'block';
+        document.getElementById('phaseBody').innerHTML = '<tr><td colspan="8" class="loading-text">⏳ 加载阶段涨幅中...</td></tr>';
+        document.getElementById('quarterBody').innerHTML = '<tr><td colspan="2" class="loading-text">⏳ 加载季度涨幅中...</td></tr>';
+        document.getElementById('yearBody').innerHTML = '<tr><td colspan="2" class="loading-text">⏳ 加载年度涨幅中...</td></tr>';
+        document.querySelectorAll('.error-msg').forEach(el => el.remove());
+    }
+    function showError(msg) {
+        const phaseArea = document.getElementById('phaseReturnArea');
+        document.querySelectorAll('.error-msg').forEach(el => el.remove());
+        const errDiv = document.createElement('div');
+        errDiv.className = 'error-msg';
+        errDiv.innerHTML = `❌ ${escapeHtml(msg)}`;
+        phaseArea.insertAdjacentElement('afterbegin', errDiv);
+        document.getElementById('phaseBody').innerHTML = `<tr><td colspan="8" class="neutral">${escapeHtml(msg)}</td></tr>`;
+        document.getElementById('quarterBody').innerHTML = '<tr><td colspan="2" class="neutral">无法获取季度数据</td></tr>';
+        document.getElementById('yearBody').innerHTML = '<tr><td colspan="2" class="neutral">无法获取年度数据</td></tr>';
+        document.getElementById('fundInfoArea').style.display = 'none';
+    }
+
+    async function queryFund(code) {
+        if (!/^\d{6}$/.test(code)) { showError('基金代码必须是6位数字'); return; }
+        showLoading();
+        try {
+            const [baseInfo, phase, quarters, years] = await Promise.all([
+                fetchFundBaseInfo(code),
+                fetchPhaseReturn(code),
+                fetchQuarterReturn(code),
+                fetchYearReturn(code)
+            ]);
+            renderFundInfo(baseInfo.name, baseInfo.scale, code);
+            renderPhaseReturn(phase);
+            renderQuarterReturn(quarters);
+            renderYearReturn(years);
+        } catch (err) {
+            console.error(err);
+            showError(err.message || '数据加载失败，请检查代码或稍后重试');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('searchBtn');
+        const input = document.getElementById('fundCodeInput');
+        const search = () => queryFund(input.value.trim());
+        btn.addEventListener('click', search);
+        input.addEventListener('keypress', e => { if (e.key === 'Enter') search(); });
+        queryFund('018561');
+    });
+</script>
+</body>
+</html>

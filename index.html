@@ -2,346 +2,285 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>基金数据查询 - 累计净值计算版（校准官方）</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基金全景档案库 (免代理直连版)</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #f5f7fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; padding: 20px; color: #1f2d3d; }
-        .container { max-width: 1300px; margin: 0 auto; }
-        .search-card { background: white; border-radius: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); padding: 24px 28px; margin-bottom: 28px; }
-        .search-box { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; }
-        .input-group { flex: 2; min-width: 200px; }
-        .input-group label { display: block; font-size: 14px; font-weight: 500; color: #5a6874; margin-bottom: 8px; }
-        .input-group input { width: 100%; padding: 12px 16px; font-size: 16px; border: 1px solid #dcdfe6; border-radius: 14px; outline: none; transition: 0.2s; }
-        .input-group input:focus { border-color: #e6352c; box-shadow: 0 0 0 3px rgba(230,53,44,0.1); }
-        .btn-query { background: #e6352c; color: white; border: none; padding: 12px 32px; font-size: 16px; font-weight: 600; border-radius: 40px; cursor: pointer; transition: 0.2s; }
-        .btn-query:hover { background: #c42820; transform: translateY(-1px); }
-        .info-card { background: white; border-radius: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); padding: 20px 28px; margin-bottom: 28px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; }
-        .fund-name { font-size: 1.6rem; font-weight: 700; color: #1e2a3a; }
-        .fund-code { font-size: 1rem; color: #7e8c8f; margin-left: 12px; }
-        .fund-scale { background: #fef2e9; padding: 8px 20px; border-radius: 40px; color: #e67e22; font-weight: 600; }
-        .fund-scale span { font-size: 1.3rem; font-weight: 800; margin-right: 4px; }
-        .section-card { background: white; border-radius: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); margin-bottom: 28px; overflow-x: auto; padding: 8px 0; }
-        .section-title { font-size: 1.3rem; font-weight: 700; padding: 18px 24px 8px 24px; color: #1f2d3d; border-left: 5px solid #e6352c; }
-        .fund-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 680px; }
-        .fund-table th { background: #f8fafc; padding: 14px 12px; text-align: center; font-weight: 600; color: #4a5b6e; border-bottom: 1px solid #e9edf2; }
-        .fund-table td { padding: 12px 12px; text-align: center; border-bottom: 1px solid #f0f2f5; }
-        .positive { color: #e6352c; font-weight: 500; }
-        .negative { color: #2d9c6b; font-weight: 500; }
-        .neutral { color: #7f8c8d; }
-        .loading-text { text-align: center; padding: 48px; color: #8a9cb0; }
-        .error-msg { background: #fee9e6; color: #c0392b; border-radius: 16px; padding: 14px 20px; margin: 16px 24px; text-align: center; }
-        .footnote { text-align: right; font-size: 12px; color: #95a5a6; padding: 12px 24px 20px; border-top: 1px solid #edf2f7; margin-top: 8px; }
-        @media (max-width: 700px) { .fund-name { font-size: 1.2rem; } .section-title { font-size: 1.1rem; } }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f7f6; display: flex; justify-content: center;
+            padding: 40px 10px; margin: 0; min-height: 100vh; box-sizing: border-box;
+        }
+        .container {
+            background-color: #fff; padding: 30px; border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06); width: 100%; max-width: 850px;
+        }
+        h2 { color: #333; margin-top: 0; text-align: center; }
+        .tip { color: #666; font-size: 14px; text-align: center; margin-bottom: 25px; line-height: 1.6;}
+        
+        .input-group { display: flex; margin-bottom: 20px; }
+        input[type="text"] {
+            flex: 1; padding: 12px 15px; border: 1px solid #d9d9d9; border-radius: 6px 0 0 6px;
+            font-size: 16px; outline: none; text-align: center; letter-spacing: 2px; transition: 0.3s;
+        }
+        input[type="text"]:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.2); }
+        button.search-btn {
+            padding: 0 30px; background-color: #1677ff; color: white; border: none;
+            border-radius: 0 6px 6px 0; font-size: 16px; cursor: pointer; transition: 0.3s; font-weight: bold;
+        }
+        button.search-btn:hover { background-color: #4096ff; }
+        button.search-btn:disabled { background-color: #b5d5ff; cursor: not-allowed; }
+
+        .msg { text-align: center; font-size: 14px; padding: 12px; border-radius: 6px; display: none; margin-bottom: 20px;}
+        .msg.error { display: block; background: #fff2f0; color: #ff4d4f; border: 1px solid #ffccc7; }
+
+        #resultArea { display: none; }
+        .base-info {
+            background: #fafafa; padding: 20px; border-radius: 8px; margin-bottom: 20px;
+            border: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;
+        }
+        .fund-name { font-size: 19px; font-weight: bold; color: #333; }
+        .fund-size { font-size: 15px; color: #666; }
+        .fund-size span { color: #d9534f; font-size: 24px; font-weight: bold; margin-left: 5px; }
+
+        /* 选项卡样式 */
+        .tabs { display: flex; border-bottom: 2px solid #f0f0f0; margin-bottom: 15px; }
+        .tab-btn {
+            padding: 10px 20px; cursor: pointer; font-size: 15px; color: #666; border: none;
+            background: transparent; position: relative; font-weight: 500; transition: 0.3s;
+        }
+        .tab-btn:hover { color: #1677ff; }
+        .tab-btn.active { color: #1677ff; font-weight: bold; }
+        .tab-btn.active::after {
+            content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 2px; background-color: #1677ff;
+        }
+        
+        .tab-content { display: none; min-height: 150px; overflow-x: auto; animation: fadeIn 0.3s; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* 针对原生抓取表格的深度重构美化 */
+        .tab-content table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; white-space: nowrap; margin-bottom: 15px;}
+        .tab-content th { background-color: #f8f9fa; color: #555; padding: 14px 10px; border-bottom: 1px solid #e8e8e8; font-weight: bold;}
+        .tab-content td { padding: 14px 10px; border-bottom: 1px solid #f0f0f0; color: #333; }
+        .tab-content tr:hover td { background-color: #f5faff; }
+        
+        /* 固定第一列 */
+        .tab-content th:first-child, .tab-content td:first-child { 
+            text-align: left; position: sticky; left: 0; background: #fff; 
+            box-shadow: 2px 0 5px rgba(0,0,0,0.03); z-index: 2; font-weight: bold; color: #444;
+        }
+        .tab-content th:first-child { background: #f8f9fa; }
+        
+        .ui-color-red { color: #f5222d !important; font-weight: bold; font-size: 14px;}
+        .ui-color-green { color: #52c41a !important; font-weight: bold; font-size: 14px;}
+        .tab-content a { color: inherit; text-decoration: none; pointer-events: none; }
+        .tab-content .icon-up, .tab-content .icon-down, .tab-content .tips { display: none; }
+        
+        /* 深度卡片 */
+        .grid-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 15px;}
+        .card { background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 15px; text-align: left; }
+        .card h3 { margin: 0 0 10px 0; color: #1677ff; font-size: 15px; border-bottom: 1px dashed #eee; padding-bottom: 8px;}
+        .card p { margin: 8px 0; color: #555; font-size: 14px;}
+        .badge { background: #e6f4ff; color: #1677ff; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-right: 5px;}
     </style>
 </head>
 <body>
+
 <div class="container">
-    <div class="search-card">
-        <div class="search-box">
-            <div class="input-group">
-                <label>🐔 基金代码 (例如: 000001, 110011, 005827)</label>
-                <input type="text" id="fundCodeInput" placeholder="输入6位基金代码" value="018561" maxlength="6">
-            </div>
-            <button class="btn-query" id="searchBtn">🔍 查询基金</button>
-        </div>
-        <div class="footnote" style="border:none; padding:12px 0 0 0;">数据源：天天基金累计净值（校准官方涨幅）</div>
+    <h2>📊 基金核心数据全景查询</h2>
+    <p class="tip">采用双核免代理技术，突破跨域限制，<span style="color:#d9534f; font-weight:bold;">1秒直出</span>历史季度/年度深度图表！</p>
+    
+    <div class="input-group">
+        <input type="text" id="fundCode" placeholder="输入6位代码，如000001" maxlength="6" onkeypress="handleEnter(event)">
+        <button id="searchBtn" class="search-btn" onclick="queryFund()">闪电直查</button>
     </div>
 
-    <div id="fundInfoArea" class="info-card" style="display: none;"></div>
-    <div id="phaseReturnArea" class="section-card" style="display: none;">
-        <div class="section-title">📈 阶段涨幅 (%)</div>
-        <div style="overflow-x: auto;">
-            <table class="fund-table">
-                <thead><tr><th>近1周</th><th>近1月</th><th>近3月</th><th>近6月</th><th>今年来</th><th>近1年</th><th>近2年</th><th>近3年</th></tr></thead>
-                <tbody id="phaseBody"><tr><td colspan="8" class="loading-text">加载中...</td></tr></tbody>
-            </table>
+    <div id="statusMsg" class="msg"></div>
+
+    <div id="resultArea">
+        <div class="base-info">
+            <div class="fund-name" id="uiName">加载中...</div>
+            <div class="fund-size">最新规模: <span id="uiSize">--</span></div>
         </div>
-    </div>
-    <div id="quarterReturnArea" class="section-card" style="display: none;">
-        <div class="section-title">📆 季度涨幅 (%)</div>
-        <div style="overflow-x: auto;">
-            <table class="fund-table">
-                <thead><tr><th>季度</th><th>阶段涨幅</th></tr></thead>
-                <tbody id="quarterBody"><tr><td colspan="2" class="loading-text">加载中...</td></tr></tbody>
-            </table>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('stage')">阶段涨幅</button>
+            <button class="tab-btn" onclick="switchTab('quarter')">季度涨幅</button>
+            <button class="tab-btn" onclick="switchTab('year')">年度涨幅</button>
+            <button class="tab-btn" onclick="switchTab('deep')">综合与经理</button>
         </div>
-    </div>
-    <div id="yearReturnArea" class="section-card" style="display: none;">
-        <div class="section-title">📅 年度涨幅 (%)</div>
-        <div style="overflow-x: auto;">
-            <table class="fund-table">
-                <thead><tr><th>年度</th><th>阶段涨幅</th></tr></thead>
-                <tbody id="yearBody"><tr><td colspan="2" class="loading-text">加载中...</td></tr></tbody>
-            </table>
-        </div>
+
+        <div id="tab-stage" class="tab-content active"></div>
+        <div id="tab-quarter" class="tab-content"></div>
+        <div id="tab-year" class="tab-content"></div>
+        <div id="tab-deep" class="tab-content"></div>
     </div>
 </div>
 
 <script>
-    // 加载基金数据（使用累计净值 Data_ACWorthTrend）
-    function loadFundData(code) {
-        return new Promise((resolve, reject) => {
+    function handleEnter(event) {
+        if (event.key === "Enter") queryFund();
+    }
+
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        document.getElementById(`tab-${tabName}`).classList.add('active');
+    }
+
+    // 引擎 A：基本信息获取 (极速版)
+    function fetchBasicData(code) {
+        return new Promise((resolve) => {
             const script = document.createElement('script');
-            const url = `https://fund.eastmoney.com/pingzhongdata/${code}.js`;
-            let resolved = false;
-            const timeout = setTimeout(() => {
-                if (!resolved) reject(new Error('请求超时，请检查网络或基金代码'));
-            }, 15000);
-            
-            const backup = {};
-            const vars = ['fS_name', 'Data_ACWorthTrend', 'Data_fluctuationScale'];
-            vars.forEach(v => { if (window[v] !== undefined) { backup[v] = window[v]; delete window[v]; } });
+            script.src = `https://fund.eastmoney.com/pingzhongdata/${code}.js?v=${Date.now()}`;
             
             script.onload = () => {
-                resolved = true;
-                clearTimeout(timeout);
-                try {
-                    const name = window.fS_name || '未知基金';
-                    // 优先使用累计净值 Data_ACWorthTrend，若不存在则回退单位净值 Data_netWorthTrend
-                    let worthData = window.Data_ACWorthTrend || window.Data_netWorthTrend || [];
-                    let scale = null;
-                    if (window.Data_fluctuationScale && window.Data_fluctuationScale.series && window.Data_fluctuationScale.series.length) {
-                        const last = window.Data_fluctuationScale.series[window.Data_fluctuationScale.series.length - 1];
-                        scale = last.y;
-                    }
-                    vars.forEach(v => delete window[v]);
-                    Object.assign(window, backup);
-                    
-                    if (!Array.isArray(worthData) || worthData.length === 0) throw new Error('净值数据为空');
-                    // 过滤无效数据
-                    worthData = worthData.filter(item => item && typeof item[0] === 'number' && typeof item[1] === 'number');
-                    if (worthData.length === 0) throw new Error('没有有效的净值数据');
-                    
-                    // 转换为对象数组 { x: 时间戳, y: 累计净值 }
-                    const netWorth = worthData.map(item => ({ x: item[0], y: item[1] }));
-                    resolve({ name, netWorth, scale });
-                } catch (e) {
-                    reject(e);
-                } finally {
-                    script.remove();
+                const data = { name: '未知基金', size: '--', manager: null, eval: null };
+                if (typeof fS_name !== 'undefined') data.name = fS_name;
+                
+                if (typeof Data_fluctuationScale !== 'undefined' && Data_fluctuationScale.series && Data_fluctuationScale.series.length > 0) {
+                    data.size = Data_fluctuationScale.series[Data_fluctuationScale.series.length - 1].y + ' 亿元';
+                } else if (typeof Data_fundSharesSize !== 'undefined' && Data_fundSharesSize.length > 0) {
+                    data.size = Data_fundSharesSize[Data_fundSharesSize.length - 1][1] + ' 亿元';
                 }
+
+                if (typeof Data_currentFundManager !== 'undefined' && Data_currentFundManager.length > 0) data.manager = Data_currentFundManager[0];
+                if (typeof Data_performanceEvaluation !== 'undefined') data.eval = Data_performanceEvaluation;
+
+                document.head.removeChild(script);
+                resolve(data);
             };
-            script.onerror = () => {
-                resolved = true;
-                clearTimeout(timeout);
-                reject(new Error('基金数据加载失败，请检查代码是否正确'));
-            };
-            script.src = url;
+            script.onerror = () => { document.head.removeChild(script); resolve(null); };
             document.head.appendChild(script);
         });
     }
 
-    // 根据时间戳（毫秒）获取最接近且不大于该时间的净值（二分查找）
-    function getClosestNetValue(sorted, targetTimestamp) {
-        if (sorted.length === 0) return null;
-        let left = 0, right = sorted.length - 1;
-        let result = null;
-        while (left <= right) {
-            const mid = Math.floor((left + right) / 2);
-            if (sorted[mid].x <= targetTimestamp) {
-                result = sorted[mid];
-                left = mid + 1;
-            } else {
-                right = mid - 1;
-            }
-        }
-        return result ? result.y : null;
-    }
+    // 引擎 B：[彻底修复版] 无视 ID，智能语义提取原生表格
+    function fetchHistoricalTables(code) {
+        return new Promise((resolve) => {
+            const script = document.createElement('script');
+            script.src = `https://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jdzf&code=${code}&rt=${Date.now()}`;
+            
+            script.onload = () => {
+                const tables = { stage: '', quarter: '', year: '' };
+                const noDataHtml = '<div style="padding:40px; text-align:center; color:#999;">该基金暂无此区间图表数据</div>';
 
-    // 计算两个日期间的涨幅（自然日）
-    function calcReturnByDays(sorted, latestDate, daysAgo) {
-        const targetTime = latestDate.getTime() - daysAgo * 86400000;
-        const oldNav = getClosestNetValue(sorted, targetTime);
-        const latestNav = sorted[sorted.length - 1].y;
-        if (oldNav === null || oldNav === 0) return null;
-        return (latestNav - oldNav) / oldNav * 100;
-    }
+                if (typeof apidata !== 'undefined' && apidata.content) {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(apidata.content, 'text/html');
 
-    // 计算今年以来涨幅
-    function computeYtdReturn(sorted, latestDate) {
-        const currentYear = latestDate.getFullYear();
-        const yearStart = new Date(currentYear, 0, 1);
-        const startNav = getClosestNetValue(sorted, yearStart.getTime());
-        const latestNav = sorted[sorted.length - 1].y;
-        if (startNav === null || startNav === 0) return null;
-        return (latestNav - startNav) / startNav * 100;
-    }
+                    // 获取 API 返回的全部表格
+                    const allTables = doc.querySelectorAll('table');
+                    
+                    // 采用最强“模糊语义匹配”，直接看表格里的文字进行归类
+                    allTables.forEach(t => {
+                        const text = t.textContent;
+                        if (text.includes('近1月') || text.includes('今年以来')) {
+                            tables.stage = t.outerHTML;
+                        } else if (text.includes('季度') && text.includes('区间回报')) {
+                            tables.quarter = t.outerHTML;
+                        } else if (text.includes('年度') && text.includes('区间回报')) {
+                            tables.year = t.outerHTML;
+                        }
+                    });
+                }
+                
+                // 兜底策略
+                if (!tables.stage) tables.stage = noDataHtml;
+                if (!tables.quarter) tables.quarter = noDataHtml;
+                if (!tables.year) tables.year = noDataHtml;
 
-    // 阶段涨幅（自然日）
-    function computePhaseReturns(sorted) {
-        const latestDate = new Date(sorted[sorted.length - 1].x);
-        return {
-            one_week: calcReturnByDays(sorted, latestDate, 7),
-            one_month: calcReturnByDays(sorted, latestDate, 30),
-            three_month: calcReturnByDays(sorted, latestDate, 90),
-            six_month: calcReturnByDays(sorted, latestDate, 180),
-            year_to_date: computeYtdReturn(sorted, latestDate),
-            one_year: calcReturnByDays(sorted, latestDate, 365),
-            two_year: calcReturnByDays(sorted, latestDate, 730),
-            three_year: calcReturnByDays(sorted, latestDate, 1095)
-        };
-    }
-
-    // 季度涨幅（自然季度）
-    function computeQuarterReturns(sorted) {
-        const quarters = new Map();
-        for (let i = 0; i < sorted.length; i++) {
-            const d = new Date(sorted[i].x);
-            const year = d.getFullYear();
-            const quarter = Math.floor(d.getMonth() / 3) + 1;
-            const key = `${year}年${quarter}季度`;
-            if (!quarters.has(key)) {
-                quarters.set(key, { firstNav: sorted[i].y, lastNav: sorted[i].y });
-            } else {
-                const q = quarters.get(key);
-                q.lastNav = sorted[i].y;
-            }
-        }
-        const result = [];
-        for (let [quarter, { firstNav, lastNav }] of quarters.entries()) {
-            const ret = (lastNav - firstNav) / firstNav * 100;
-            result.push({ quarter, return_rate: isNaN(ret) ? '--' : ret.toFixed(2) });
-        }
-        // 按时间倒序
-        result.sort((a, b) => {
-            const getVal = (q) => {
-                if (!q) return 0;
-                const m = q.match(/(\d{4})年(\d+)季度/);
-                return m ? parseInt(m[1]) * 10 + parseInt(m[2]) : 0;
+                document.head.removeChild(script);
+                resolve(tables);
             };
-            return getVal(b.quarter) - getVal(a.quarter);
+            script.onerror = () => { document.head.removeChild(script); resolve(null); };
+            document.head.appendChild(script);
         });
-        return result;
     }
 
-    // 年度涨幅
-    function computeYearReturns(sorted) {
-        const years = new Map();
-        for (let i = 0; i < sorted.length; i++) {
-            const d = new Date(sorted[i].x);
-            const year = d.getFullYear();
-            if (!years.has(year)) {
-                years.set(year, { firstNav: sorted[i].y, lastNav: sorted[i].y });
-            } else {
-                const y = years.get(year);
-                y.lastNav = sorted[i].y;
+    // 渲染深度数据面板
+    function renderDeepData(d) {
+        let html = '<div class="grid-cards">';
+        
+        if (d.manager) {
+            html += `
+                <div class="card">
+                    <h3>👨‍💼 现任经理: ${d.manager.name}</h3>
+                    <p><strong>任职时长：</strong> <span class="badge">${d.manager.workTime}</span></p>
+                    <p><strong>管理规模：</strong> <span>${d.manager.fundSize}</span></p>
+                    <p><strong>综合评分：</strong> <span style="color:#d9534f; font-weight:bold;">${d.manager.power ? d.manager.power.avr : '--'} 分</span></p>
+                </div>
+            `;
+        }
+
+        if (d.eval && d.eval.data) {
+            let barHtml = '';
+            for(let i=0; i<d.eval.categories.length; i++) {
+                barHtml += `
+                    <div style="margin-bottom: 8px; display: flex; align-items: center;">
+                        <span style="width: 60px; font-size: 13px; color: #555;">${d.eval.categories[i]}</span>
+                        <div style="flex: 1; background: #f0f0f0; height: 8px; border-radius: 4px; overflow: hidden; margin: 0 10px;">
+                            <div style="width: ${d.eval.data[i]}%; background: #1677ff; height: 8px;"></div>
+                        </div>
+                        <span style="width: 30px; font-size: 12px; color: #1677ff;">${d.eval.data[i]}</span>
+                    </div>
+                `;
             }
+            html += `<div class="card"><h3>📊 基金综合评分 <span style="color:#d9534f; float:right;">${d.eval.avr} 分</span></h3>${barHtml}</div>`;
         }
-        const result = [];
-        for (let [year, { firstNav, lastNav }] of years.entries()) {
-            const ret = (lastNav - firstNav) / firstNav * 100;
-            result.push({ year: year.toString(), return_rate: isNaN(ret) ? '--' : ret.toFixed(2) });
-        }
-        result.sort((a, b) => parseInt(b.year) - parseInt(a.year));
-        return result;
+        html += '</div>';
+        
+        if(html === '<div class="grid-cards"></div>') html = '<div style="padding:40px; text-align:center; color:#999;">暂无深度数据</div>';
+        document.getElementById('tab-deep').innerHTML = html;
     }
 
-    // 渲染函数（与之前相同，略）
-    function formatPercent(value) {
-        if (value === undefined || value === null || value === '') return '<span class="neutral">--</span>';
-        let num = parseFloat(value);
-        if (isNaN(num)) return `<span class="neutral">${escapeHtml(String(value))}</span>`;
-        const formatted = num.toFixed(2);
-        if (num > 0) return `<span class="positive">+${formatted}%</span>`;
-        if (num < 0) return `<span class="negative">${formatted}%</span>`;
-        return `<span class="neutral">${formatted}%</span>`;
-    }
-    function escapeHtml(str) {
-        if (!str) return '';
-        return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
-    }
-    function renderFundInfo(name, scale, code) {
-        const area = document.getElementById('fundInfoArea');
-        let scaleText = '暂无规模数据';
-        if (scale !== undefined && scale !== null) {
-            let num = parseFloat(scale);
-            if (!isNaN(num)) scaleText = `${num.toFixed(2)} 亿元`;
-            else scaleText = String(scale);
-        }
-        area.innerHTML = `<div style="display:flex; justify-content:space-between; width:100%; flex-wrap:wrap; gap:12px;">
-            <div><span class="fund-name">${escapeHtml(name)}</span><span class="fund-code">(${escapeHtml(code)})</span></div>
-            <div class="fund-scale">📊 最新规模 <span>${escapeHtml(scaleText)}</span></div>
-        </div>`;
-        area.style.display = 'flex';
-    }
-    function renderPhaseReturns(phase) {
-        const tbody = document.getElementById('phaseBody');
-        if (!phase) { tbody.innerHTML = '<tr><td colspan="8" class="neutral">暂无数据</td></tr>'; return; }
-        const order = ['one_week', 'one_month', 'three_month', 'six_month', 'year_to_date', 'one_year', 'two_year', 'three_year'];
-        let html = '<tr>';
-        for (let key of order) html += `<td>${formatPercent(phase[key])}</td>`;
-        html += '</tr>';
-        tbody.innerHTML = html;
-    }
-    function renderQuarterReturns(quarters) {
-        const tbody = document.getElementById('quarterBody');
-        if (!quarters.length) { tbody.innerHTML = '<tr><td colspan="2" class="neutral">暂无季度数据</td></tr>'; return; }
-        let html = '';
-        for (let q of quarters.slice(0, 12)) {
-            html += `<tr><td style="font-weight:500;">${escapeHtml(q.quarter)}</td><td>${formatPercent(q.return_rate)}</td></tr>`;
-        }
-        tbody.innerHTML = html;
-    }
-    function renderYearReturns(years) {
-        const tbody = document.getElementById('yearBody');
-        if (!years.length) { tbody.innerHTML = '<tr><td colspan="2" class="neutral">暂无年度数据</td></tr>'; return; }
-        let html = '';
-        for (let y of years) {
-            html += `<tr><td style="font-weight:500;">${escapeHtml(y.year)}</td><td>${formatPercent(y.return_rate)}</td></tr>`;
-        }
-        tbody.innerHTML = html;
-    }
-    function showLoadingState() {
-        document.getElementById('fundInfoArea').style.display = 'none';
-        document.getElementById('phaseReturnArea').style.display = 'block';
-        document.getElementById('quarterReturnArea').style.display = 'block';
-        document.getElementById('yearReturnArea').style.display = 'block';
-        document.getElementById('phaseBody').innerHTML = '<tr><td colspan="8" class="loading-text">⏳ 计算阶段涨幅中...</td></tr>';
-        document.getElementById('quarterBody').innerHTML = '<tr><td colspan="2" class="loading-text">⏳ 计算季度涨幅中...</td></tr>';
-        document.getElementById('yearBody').innerHTML = '<tr><td colspan="2" class="loading-text">⏳ 计算年度涨幅中...</td></tr>';
-        document.querySelectorAll('.error-msg').forEach(el => el.remove());
-    }
-    function showGlobalError(msg) {
-        const phaseArea = document.getElementById('phaseReturnArea');
-        document.querySelectorAll('.error-msg').forEach(el => el.remove());
-        const errDiv = document.createElement('div');
-        errDiv.className = 'error-msg';
-        errDiv.innerHTML = `❌ 查询失败: ${escapeHtml(msg)}<br>请核对基金代码或稍后再试`;
-        phaseArea.insertAdjacentElement('afterbegin', errDiv);
-        document.getElementById('phaseBody').innerHTML = `<tr><td colspan="8" class="neutral">${escapeHtml(msg)}</td></tr>`;
-        document.getElementById('quarterBody').innerHTML = '<tr><td colspan="2" class="neutral">无法获取季度数据</td></tr>';
-        document.getElementById('yearBody').innerHTML = '<tr><td colspan="2" class="neutral">无法获取年度数据</td></tr>';
-        document.getElementById('fundInfoArea').style.display = 'none';
-    }
-
-    async function queryFund(code) {
-        if (!/^\d{6}$/.test(code)) { showGlobalError('基金代码必须是6位数字'); return; }
-        showLoadingState();
-        try {
-            const { name, netWorth, scale } = await loadFundData(code);
-            const sorted = [...netWorth].sort((a,b) => a.x - b.x);
-            const phase = computePhaseReturns(sorted);
-            const quarters = computeQuarterReturns(sorted);
-            const years = computeYearReturns(sorted);
-            renderFundInfo(name, scale, code);
-            renderPhaseReturns(phase);
-            renderQuarterReturns(quarters);
-            renderYearReturns(years);
-        } catch (err) {
-            console.error(err);
-            showGlobalError(err.message || '数据加载失败，请检查代码');
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
+    async function queryFund() {
+        const codeInput = document.getElementById('fundCode').value.trim();
         const searchBtn = document.getElementById('searchBtn');
-        const inputEl = document.getElementById('fundCodeInput');
-        const perform = () => queryFund(inputEl.value.trim());
-        searchBtn.addEventListener('click', perform);
-        inputEl.addEventListener('keypress', (e) => { if (e.key === 'Enter') perform(); });
-        queryFund('018561');
-    });
+        const statusMsg = document.getElementById('statusMsg');
+        const resultArea = document.getElementById('resultArea');
+
+        if (!/^\d{6}$/.test(codeInput)) {
+            statusMsg.className = 'msg error';
+            statusMsg.innerHTML = '❌ 请输入正确的6位纯数字基金代码！';
+            statusMsg.style.display = 'block'; resultArea.style.display = 'none'; return;
+        }
+
+        searchBtn.disabled = true;
+        statusMsg.style.display = 'none';
+        
+        try {
+            // 双引擎并发获取，极致速度
+            const [basicData, tablesData] = await Promise.all([
+                fetchBasicData(codeInput),
+                fetchHistoricalTables(codeInput)
+            ]);
+
+            if (!basicData) throw new Error("未找到该基金或代码有误");
+
+            resultArea.style.display = 'block';
+            document.getElementById('uiName').innerText = basicData.name;
+            document.getElementById('uiSize').innerHTML = `<span>${basicData.size}</span>`;
+
+            // 填充通过语义分析提取出来的原生表格
+            document.getElementById('tab-stage').innerHTML = tablesData.stage;
+            document.getElementById('tab-quarter').innerHTML = tablesData.quarter;
+            document.getElementById('tab-year').innerHTML = tablesData.year;
+
+            // 渲染综合评分与经理卡片
+            renderDeepData(basicData);
+
+        } catch (error) {
+            statusMsg.className = 'msg error';
+            statusMsg.innerHTML = `❌ ${error.message}`;
+            statusMsg.style.display = 'block';
+            resultArea.style.display = 'none';
+        } finally {
+            searchBtn.disabled = false;
+        }
+    }
 </script>
+
 </body>
 </html>

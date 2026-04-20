@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>基金核心数据全景查询 (全官方直连版)</title>
+    <title>基金核心数据全景查询 (全维度直连版)</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -58,19 +58,20 @@
         .tab-content.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
         
-        /* 原生 UL 转换为 Table 后的重构样式 */
+        /* 我们重组后的高级表格样式 */
         .data-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; white-space: nowrap; margin-bottom: 15px;}
         .data-table th { background-color: #f8f9fa; color: #555; padding: 14px 10px; border-bottom: 1px solid #e8e8e8; font-weight: bold;}
         .data-table td { padding: 14px 10px; border-bottom: 1px solid #f0f0f0; color: #333; }
         .data-table tr:hover td { background-color: #f5faff; }
         
-        /* 固定第一列 */
+        /* 锁定第一列 */
         .data-table th:first-child, .data-table td:first-child { 
             text-align: left; position: sticky; left: 0; background: #fff; 
             box-shadow: 2px 0 5px rgba(0,0,0,0.03); z-index: 2; font-weight: bold; color: #444;
         }
         .data-table th:first-child { background: #f8f9fa; }
         
+        /* 全局红绿配色 */
         .red { color: #f5222d !important; font-weight: bold; font-size: 14px;}
         .green { color: #52c41a !important; font-weight: bold; font-size: 14px;}
         
@@ -88,12 +89,12 @@
     <h2>📊 基金核心数据全景查询</h2>
     <p class="tip">
         采用底层 JSONP 数据源直连技术，<span style="color:#d9534f; font-weight:bold;">100% 免代理防屏蔽</span>。<br>
-        完美还原官方阶段、季度、年度报表，包含四分位评价。
+        智能重构官方混杂数据格式，完美呈现全周期报表。
     </p>
     
     <div class="input-group">
         <input type="text" id="fundCode" placeholder="输入6位代码，如004685" maxlength="6" onkeypress="handleEnter(event)">
-        <button id="searchBtn" class="search-btn" onclick="queryFund()">全量提取</button>
+        <button id="searchBtn" class="search-btn" onclick="queryFund()">无阻闪查</button>
     </div>
 
     <div id="statusMsg" class="msg"></div>
@@ -131,60 +132,81 @@
     }
 
     // ==========================================
-    // 引擎 1：通用原生 UL 转 Table 解析器 (无敌核心)
-    // 根据你提供的三个接口特性，完美解析并重组
+    // 智能单元格处理器：清理垃圾代码，统一上色
+    // ==========================================
+    function processCellText(text) {
+        let num = parseFloat(text);
+        if (text.includes('%') && !isNaN(num)) {
+            if (num > 0) return `<span class="red">${text}</span>`;
+            else if (num < 0) return `<span class="green">${text}</span>`;
+            return `<span>${text}</span>`;
+        } 
+        else if (text.includes('优秀') || text.includes('良好')) return `<span class="red">${text}</span>`;
+        else if (text.includes('不佳') || text.includes('一般')) return `<span class="green">${text}</span>`;
+        else if (text.includes('|')) {
+            // 处理排名如 "427|2333" -> "427 / 2333"
+            let parts = text.split('|');
+            return `<span style="color:#1677ff;font-weight:bold;">${parts[0]}</span><span style="color:#999;font-size:12px;"> / ${parts[1]}</span>`;
+        }
+        else if (text.includes('↓')) return `<span class="green">${text}</span>`;
+        else if (text.includes('↑')) return `<span class="red">${text}</span>`;
+        
+        return text;
+    }
+
+    // ==========================================
+    // 引擎 1：全兼容解析器（支持 UL 和 Native Table）
     // ==========================================
     function fetchOfficialListTable(apiType, varName, code) {
         return new Promise((resolve) => {
             const script = document.createElement('script');
-            // type 支持：jdzf (阶段), quarterzf (季度), yearzf (年度)
             script.src = `https://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=${apiType}&code=${code}&rt=${Date.now()}`;
             
             script.onload = () => {
                 let generatedHtml = '<div style="padding:40px; text-align:center; color:#999;">该基金暂无此区间数据</div>';
                 
-                // 根据传入的变量名去 window 上找天天基金赋予的数据
                 if (typeof window[varName] !== 'undefined' && window[varName].content) {
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(window[varName].content, 'text/html');
                     
-                    const uls = doc.querySelectorAll('ul');
-                    if (uls.length > 0) {
-                        generatedHtml = '<table class="data-table">';
-                        uls.forEach((ul, index) => {
-                            if (index === 0) {
-                                generatedHtml += '<thead><tr>';
-                                ul.querySelectorAll('li').forEach(li => generatedHtml += `<th>${li.innerHTML}</th>`);
-                                generatedHtml += '</tr></thead><tbody>';
-                            } else {
-                                generatedHtml += '<tr>';
-                                ul.querySelectorAll('li').forEach(li => {
-                                    let text = li.textContent.trim();
-                                    let num = parseFloat(text);
-                                    
-                                    // 智能上色系统：判断是数字%、箭头还是四分位评价词
-                                    if (text.includes('%') && !isNaN(num)) {
-                                        if (num > 0) li.innerHTML = `<span class="red">${text}</span>`;
-                                        else if (num < 0) li.innerHTML = `<span class="green">${text}</span>`;
-                                    } 
-                                    else if (text.includes('优秀') || text.includes('良好')) {
-                                        li.innerHTML = `<span class="red">${text}</span>`;
-                                    }
-                                    else if (text.includes('不佳') || text.includes('↓')) {
-                                        li.innerHTML = `<span class="green">${text}</span>`;
-                                    }
-                                    else if (text.includes('↑')) {
-                                        li.innerHTML = `<span class="red">${text}</span>`;
-                                    }
-                                    
-                                    generatedHtml += `<td>${li.innerHTML}</td>`;
-                                });
-                                generatedHtml += '</tr>';
-                            }
+                    // 场景 A：官方返回的是原生 Table (如季度、年度)
+                    const nativeTables = doc.querySelectorAll('table.w782');
+                    if (nativeTables.length > 0) {
+                        let table = nativeTables[0];
+                        // 1. 暴力清除没用的气泡提示和画四分位的内部小表格
+                        table.querySelectorAll('.infoTips, table').forEach(el => el.remove());
+                        table.className = 'data-table';
+                        
+                        // 2. 处理所有单元格
+                        table.querySelectorAll('th, td').forEach(cell => {
+                            // 使用 textContent.trim() 剥离官方所有奇葩的嵌套标签，只留纯文字
+                            let rawText = cell.textContent.trim();
+                            cell.innerHTML = processCellText(rawText);
                         });
-                        generatedHtml += '</tbody></table>';
+                        generatedHtml = table.outerHTML;
+                    } 
+                    // 场景 B：官方返回的是 UL 列表 (如阶段涨幅)
+                    else {
+                        const uls = doc.querySelectorAll('ul');
+                        if (uls.length > 0) {
+                            generatedHtml = '<table class="data-table">';
+                            uls.forEach((ul, index) => {
+                                if (index === 0) {
+                                    generatedHtml += '<thead><tr>';
+                                    ul.querySelectorAll('li').forEach(li => generatedHtml += `<th>${li.innerHTML}</th>`);
+                                    generatedHtml += '</tr></thead><tbody>';
+                                } else {
+                                    generatedHtml += '<tr>';
+                                    ul.querySelectorAll('li').forEach(li => {
+                                        let rawText = li.textContent.trim();
+                                        generatedHtml += `<td>${processCellText(rawText)}</td>`;
+                                    });
+                                    generatedHtml += '</tr>';
+                                }
+                            });
+                            generatedHtml += '</tbody></table>';
+                        }
                     }
-                    // 数据用完后清理全局变量，防止查询下一个基金时数据串位
                     window[varName] = undefined;
                 }
                 document.head.removeChild(script); 
@@ -196,7 +218,7 @@
     }
 
     // ==========================================
-    // 引擎 2：提取 基金规模、经理信息、六边形综合评分
+    // 引擎 2：获取基础数据、经理、评分
     // ==========================================
     function fetchBasicData(code) {
         return new Promise((resolve) => {
@@ -206,7 +228,6 @@
                 const data = { error: false, name: '未知基金', size: '--', manager: null, eval: null };
                 if (typeof fS_name !== 'undefined') data.name = fS_name;
                 
-                // 兼容规模数据变量
                 if (typeof Data_fluctuationScale !== 'undefined' && Data_fluctuationScale.series && Data_fluctuationScale.series.length > 0) {
                     data.size = Data_fluctuationScale.series[Data_fluctuationScale.series.length - 1].y + ' 亿元';
                 } else if (typeof Data_fundSharesSize !== 'undefined' && Data_fundSharesSize.length > 0) {
@@ -272,27 +293,27 @@
         statusMsg.style.display = 'none';
         
         try {
-            // [四箭齐发] 并发请求：基础信息 + 3 个原生官方图表接口！
+            // 【无敌四并发】同时请求基本信息和三个维度的表格源数据
             const [basicData, stageHtml, quarterHtml, yearHtml] = await Promise.all([
                 fetchBasicData(codeInput),
-                fetchOfficialListTable('jdzf', 'apidata', codeInput),       // 阶段
-                fetchOfficialListTable('quarterzf', 'qapidata', codeInput), // 季度
-                fetchOfficialListTable('yearzf', 'yapidata', codeInput)     // 年度
+                fetchOfficialListTable('jdzf', 'apidata', codeInput),       // 阶段 (原生为 UL)
+                fetchOfficialListTable('quarterzf', 'qapidata', codeInput), // 季度 (原生为 Table)
+                fetchOfficialListTable('yearzf', 'yapidata', codeInput)     // 年度 (原生为 Table)
             ]);
 
             if (basicData.error) throw new Error(basicData.msg);
 
-            // 渲染基础信息
+            // 渲染面板
             resultArea.style.display = 'block';
             document.getElementById('uiName').innerText = basicData.name;
             document.getElementById('uiSize').innerHTML = `<span>${basicData.size}</span>`;
 
-            // 渲染极其精准的三大涨幅表格
+            // 填充被智能解析器处理过后的三个完美表格
             document.getElementById('tab-stage').innerHTML = stageHtml || '';
             document.getElementById('tab-quarter').innerHTML = quarterHtml || '';
             document.getElementById('tab-year').innerHTML = yearHtml || '';
 
-            // 渲染经理与评价
+            // 渲染综合面板
             renderDeepData(basicData);
 
         } catch (error) {

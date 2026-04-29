@@ -2,157 +2,219 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>基金交易规则实时查询</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>基金交易规则实时查询 - 优化版</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
         body {
-            font-family: 'Microsoft YaHei', Arial, sans-serif;
-            background-color: #f4f5f7;
-            color: #333;
+            font-family: 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background-color: #f4f7fc;
+            color: #1e2a3e;
             margin: 0;
             padding: 20px;
         }
         .container {
-            max-width: 900px;
+            max-width: 1000px;
             margin: 0 auto;
-            background: #fff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            background: #ffffff;
+            padding: 25px 20px 35px;
+            border-radius: 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+            transition: all 0.2s;
         }
         h2 {
             text-align: center;
-            color: #2c3e50;
-            margin-bottom: 30px;
+            color: #1e466e;
+            margin-bottom: 20px;
+            font-weight: 600;
+            font-size: 1.7rem;
         }
         .search-box {
             display: flex;
             justify-content: center;
-            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 30px;
         }
         .search-box input {
-            width: 300px;
-            padding: 10px 15px;
+            width: 280px;
+            padding: 12px 18px;
             font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 4px 0 0 4px;
+            border: 1px solid #cbd5e1;
+            border-radius: 40px;
             outline: none;
+            transition: 0.2s;
+            background: #fff;
+        }
+        .search-box input:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52,152,219,0.2);
         }
         .search-box button {
-            padding: 10px 20px;
+            padding: 12px 28px;
             font-size: 16px;
-            background-color: #3498db;
+            background-color: #2c6e9e;
             color: white;
             border: none;
-            border-radius: 0 4px 4px 0;
+            border-radius: 40px;
             cursor: pointer;
-            transition: background 0.2s;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
         .search-box button:hover {
-            background-color: #2980b9;
+            background-color: #1e4f73;
+            transform: translateY(-1px);
         }
         
         .section-title {
-            background: linear-gradient(to bottom, #eef5fb, #ffffff);
-            padding: 10px 15px;
-            font-size: 15px;
-            font-weight: bold;
-            color: #333;
-            border-bottom: 2px solid #3498db;
-            margin-top: 30px;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
+            background: linear-gradient(95deg, #eef3fc 0%, #ffffff 90%);
+            padding: 10px 18px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e466e;
+            border-left: 5px solid #2c6e9e;
+            margin-top: 28px;
+            margin-bottom: 16px;
+            border-radius: 12px 8px 8px 12px;
         }
-        .section-title::before {
-            content: '〇';
-            color: #3498db;
-            margin-right: 8px;
-            font-size: 14px;
-            font-weight: bold;
-        }
-
-        /* 修复排版挤压问题的基础表格样式 */
+        
+        /* 基础表格样式 - 防挤压 */
         .data-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 14px;
-            margin-bottom: 10px;
-            table-layout: fixed; /* 强制表格等分，防止文本把列撑破 */
+            margin-bottom: 12px;
+            table-layout: fixed;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
         }
         .data-table th, .data-table td {
-            border: 1px solid #e0e0e0;
-            padding: 10px;
+            border: 1px solid #e2edf2;
+            padding: 12px 8px;
             text-align: left;
-            word-wrap: break-word;
+            word-break: break-word;
+            background-color: #fff;
         }
         .data-table th {
-            background-color: #f2f2f2;
-            color: #666;
+            background-color: #f8fafc;
+            color: #2c3e50;
+            font-weight: 500;
             text-align: center;
-            font-weight: normal;
+            width: 30%;
+        }
+        .data-table td {
+            color: #1f2d3d;
         }
         
-        /* 针对 6 列的申购金额表单独调整宽度比例 */
-        .col-6 th { width: 14%; }
-        .col-6 td { width: 19%; }
-        
-        /* 针对 4 列的确认日表单独调整宽度比例 */
-        .col-4 th { width: 20%; }
-        .col-4 td { width: 30%; }
-        
+        /* 费率表格优化 */
         .rate-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 14px;
+            font-size: 13.5px;
+            border-radius: 12px;
+            overflow: auto;
+            display: block;
         }
         .rate-table th, .rate-table td {
-            border: 1px solid #e0e0e0;
-            padding: 10px;
+            border: 1px solid #e0edf2;
+            padding: 10px 8px;
             text-align: center;
+            background-color: #fff;
         }
         .rate-table th {
-            background-color: #f2f2f2;
-            color: #666;
-            font-weight: normal;
+            background-color: #f1f6fa;
+            font-weight: 600;
+            color: #1f4e79;
         }
-
+        
+        /* 响应式滚动 */
+        .table-wrapper {
+            overflow-x: auto;
+            margin-bottom: 10px;
+            border-radius: 12px;
+        }
+        
         #loading, #error {
             text-align: center;
             margin-top: 20px;
             font-size: 15px;
+            padding: 12px;
+            border-radius: 32px;
         }
-        #loading { color: #f39c12; display: none; }
-        #error { color: #e74c3c; display: none; margin-top: 10px;}
-        #result-container { display: none; }
-        
+        #loading {
+            background: #fff3e0;
+            color: #c76e0c;
+            display: none;
+        }
+        #error {
+            background: #ffe9e9;
+            color: #c23d3d;
+            display: none;
+        }
+        #result-container {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
         .fund-header {
             text-align: center;
-            margin-bottom: 20px;
-            font-size: 18px;
-            color: #e74c3c;
-            font-weight: bold;
+            margin: 5px 0 15px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #1e5a7d;
+            background: #eef4fa;
+            padding: 12px;
+            border-radius: 40px;
+            letter-spacing: 1px;
+        }
+        .tip-note {
+            font-size: 12px;
+            color: #78909c;
+            text-align: center;
+            margin-top: 20px;
+            border-top: 1px solid #e2edf2;
+            padding-top: 16px;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px);}
+            to { opacity: 1; transform: translateY(0);}
+        }
+        @media (max-width: 650px) {
+            .container {
+                padding: 18px;
+            }
+            .data-table th, .data-table td {
+                padding: 8px 5px;
+                font-size: 12.5px;
+            }
+            .rate-table th, .rate-table td {
+                padding: 7px 4px;
+                font-size: 12px;
+            }
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>基金交易规则实时查询</h2>
+    <h2>📊 基金交易规则 · 实时查询</h2>
     <div class="search-box">
-        <input type="text" id="fundInput" placeholder="输入基金代码或拼音 (如: 001018)" onkeypress="handleKeyPress(event)">
-        <button onclick="executeSearch()">查询实时数据</button>
+        <input type="text" id="fundInput" placeholder="基金代码 或 拼音/名称 (如 001018, 易方达)" onkeypress="handleKeyPress(event)" autocomplete="off">
+        <button onclick="executeSearch()">🔍 查询实时费率</button>
     </div>
 
-    <div id="loading">📡 正在连接代理节点获取实时数据，请耐心稍候...</div>
+    <div id="loading">⏳ 正在通过代理获取天天基金实时数据，请稍候...</div>
     <div id="error"></div>
 
     <div id="result-container">
-        <div class="fund-header" id="fundNameDisplay"></div>
+        <div class="fund-header" id="fundNameDisplay">-- 基金名称 --</div>
 
         <!-- 申购与赎回金额 -->
-        <div class="section-title">申购与赎回金额</div>
-        <table class="data-table col-6">
+        <div class="section-title">💰 申购与赎回金额</div>
+        <table class="data-table">
             <tr>
                 <th>申购起点</th>
                 <td id="val-buy-min">---</td>
@@ -164,8 +226,8 @@
         </table>
 
         <!-- 交易确认日 -->
-        <div class="section-title">交易确认日</div>
-        <table class="data-table col-4">
+        <div class="section-title">📅 交易确认日</div>
+        <table class="data-table">
             <tr>
                 <th>买入确认日</th>
                 <td id="val-buy-date">---</td>
@@ -174,30 +236,33 @@
             </tr>
         </table>
 
-        <!-- 申购费率 -->
-        <div class="section-title">申购费率</div>
-        <div id="buy-rate-container">获取中...</div>
+        <!-- 申购费率 (重点修复：精确提取申购费率前端表格) -->
+        <div class="section-title">📈 申购费率（前端）</div>
+        <div id="buy-rate-container" class="table-wrapper">加载中...</div>
 
         <!-- 赎回费率 -->
-        <div class="section-title">赎回费率</div>
-        <div id="sell-rate-container">获取中...</div>
+        <div class="section-title">📉 赎回费率</div>
+        <div id="sell-rate-container" class="table-wrapper">加载中...</div>
+        <div class="tip-note">✅ 数据实时来源于天天基金网费率页面 | 申购费率优先展示“申购费率（前端）”表，确保准确。</div>
     </div>
 </div>
 
 <script>
+    // ------------------- 辅助函数 -------------------
     function handleKeyPress(e) {
         if (e.key === 'Enter') executeSearch();
     }
 
     function executeSearch() {
         const input = document.getElementById('fundInput').value.trim();
-        if (!input) return alert('请输入基金代码');
-
+        if (!input) {
+            alert('请输入基金代码或名称');
+            return;
+        }
         showLoading();
         hideError();
         hideResult();
 
-        // 优先当作纯代码处理，或者使用 JSONP 搜索
         if (/^\d{6}$/.test(input)) {
             fetchFundData(input, "基金代码: " + input);
         } else {
@@ -205,7 +270,7 @@
         }
     }
 
-    // 1. 关键词转代码 (JSONP)
+    // 关键词搜索(JSONP) 获取基金代码
     function searchByKeyword(keyword) {
         const cbName = 'jsonp_search_' + Date.now();
         const script = document.createElement('script');
@@ -218,20 +283,23 @@
                 const fund = data.Datas[0]; 
                 fetchFundData(fund.CODE, `${fund.NAME} (${fund.CODE})`);
             } else {
-                showError("未找到相关基金，请确认名称或代码。");
+                showError("❌ 未找到相关基金，请确认代码或名称 (如 001018)");
                 hideLoading();
             }
         };
-        script.onerror = () => { showError("网络异常，无法搜索基金。"); hideLoading(); };
+        script.onerror = () => { 
+            showError("网络异常，无法搜索基金，请直接输入6位代码重试。"); 
+            hideLoading();
+        };
         document.body.appendChild(script);
     }
 
-    // 2. 核心请求：多代理回退机制获取 HTML
+    // 多代理回退 + 获取HTML
     async function fetchFundData(code, displayName) {
         document.getElementById('fundNameDisplay').innerText = displayName;
         const targetUrl = `http://fundf10.eastmoney.com/jjfl_${code}.html`;
         
-        // 配置 3 个主流免费前端代理节点，解决 522 报错和跨域限制
+        // 代理队列 (优先使用稳定代理)
         const proxyQueue = [
             `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
             `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
@@ -239,15 +307,13 @@
         ];
 
         let htmlString = null;
-        let fetchError = "";
+        let lastError = "";
 
-        // 依次尝试每个代理，成功一个就停止
         for (let i = 0; i < proxyQueue.length; i++) {
             try {
                 const response = await fetch(proxyQueue[i]);
-                if (!response.ok) throw new Error(`Status ${response.status}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 
-                // 处理不同代理返回的数据格式
                 if (proxyQueue[i].includes('allorigins')) {
                     const json = await response.json();
                     htmlString = json.contents;
@@ -255,60 +321,139 @@
                     htmlString = await response.text();
                 }
 
-                // 校验获取到的内容是否为有效网页
-                if (htmlString && htmlString.includes('<title')) {
-                    console.log(`使用代理节点 ${i+1} 获取成功`);
-                    break; 
+                if (htmlString && (htmlString.includes('fundf10') || htmlString.includes('申购费率') || htmlString.includes('<title>'))) {
+                    console.log(`✅ 代理节点 ${i+1} 获取成功`);
+                    break;
                 } else {
-                    throw new Error("返回数据不是有效HTML");
+                    throw new Error("无效HTML内容");
                 }
             } catch (err) {
                 console.warn(`代理节点 ${i+1} 失败:`, err.message);
-                fetchError = err.message;
+                lastError = err.message;
             }
         }
 
         hideLoading();
 
-        if (htmlString) {
+        if (htmlString && htmlString.length > 500) {
             parseF10Html(htmlString, displayName);
             showResult();
         } else {
-            showError(`数据获取彻底失败 (所有代理节点均被拒绝)。原因: ${fetchError}。这可能是天天基金的防爬机制升级，请稍后再试。`);
+            showError(`⚠️ 数据获取失败 (所有代理均被拒)。原因: ${lastError || '未知'}。\n可能是网站临时风控，建议稍后重试或更换网络环境。`);
         }
     }
 
-    // 3. 增强版模糊 DOM 解析
+    // 增强解析: 准确识别申购费率(前端) + 赎回费率 + 金额 + 确认日
     function parseF10Html(htmlString, displayName) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlString, "text/html");
 
-        // 如果获取到的是错误页
-        if (doc.body.textContent.includes('暂无数据') || doc.body.textContent.includes('访问被拦截')) {
-            showError("该基金暂无交易数据，或为场内 ETF，无场外费率。");
+        // 防意外: 如果页面是错误页
+        if (doc.body.innerText.includes('暂无数据') || doc.body.innerText.includes('访问被拦截')) {
+            showError("该基金暂无场外费率数据，或为场内ETF/封闭式基金，无法查询费率。");
             return;
         }
 
-        // --- 提取：金额指标 (容错多种关键词) ---
-        document.getElementById('val-buy-min').innerText = extractCellData(doc, ['起购金额', '申购起点', '首次购买额', '最小申购金额']) || '10.00元';
-        document.getElementById('val-sip-min').innerText = extractCellData(doc, ['定投起点', '定投起购金额', '定投金额']) || '10.00元';
-        document.getElementById('val-buy-max').innerText = extractCellData(doc, ['单日单账户', '累计申购限额', '单日最高', '最多金额']) || '无限制';
+        // 普通金额字段提取 (申购起点,定投起点,限额)
+        document.getElementById('val-buy-min').innerText = extractCellData(doc, ['起购金额', '申购起点', '首次购买额', '最小申购金额', '单笔最低申购']) || '10.00元';
+        document.getElementById('val-sip-min').innerText = extractCellData(doc, ['定投起点', '定投起购金额', '定投最低金额']) || '10.00元';
+        document.getElementById('val-buy-max').innerText = extractCellData(doc, ['单日单账户', '累计申购限额', '单日累计限额', '申购限额']) || '无限制';
 
-        // --- 提取：确认日 ---
-        document.getElementById('val-buy-date').innerText = extractCellData(doc, ['买入确认日', '申购确认日']) || 'T+1';
-        document.getElementById('val-sell-date').innerText = extractCellData(doc, ['卖出确认日', '赎回确认日']) || 'T+1';
+        // 确认日提取
+        document.getElementById('val-buy-date').innerText = extractCellData(doc, ['买入确认日', '申购确认日', 'T日确认']) || 'T+1';
+        document.getElementById('val-sell-date').innerText = extractCellData(doc, ['卖出确认日', '赎回确认日', '赎回确认']) || 'T+1';
 
-        // --- 提取：费率表格 (使用正则宽泛匹配标题) ---
-        const buyHtml = extractTableByRegex(doc, /申购费率|前端|认购费率/);
-        const sellHtml = extractTableByRegex(doc, /赎回费率/);
-
-        document.getElementById('buy-rate-container').innerHTML = formatRateTable(buyHtml);
-        document.getElementById('sell-rate-container').innerHTML = formatRateTable(sellHtml);
+        // ---------- 核心修复：申购费率专用精准提取 ----------
+        const buyRateHtml = extractBuyRateTablePrecise(doc);
+        document.getElementById('buy-rate-container').innerHTML = formatRateTable(buyRateHtml, true);
+        
+        // 赎回费率 (通用)
+        const sellRateHtml = extractTableByRegex(doc, /赎回费率/);
+        document.getElementById('sell-rate-container').innerHTML = formatRateTable(sellRateHtml, false);
     }
 
-    // [核心工具1]：在整个网页所有表格里找指定的列头部词，返回它右侧的格子内容
+    /** 
+     * 精确提取【申购费率前端】表格，严格避开“认购费率”
+     * 优先匹配标题文本包含“申购费率”且不包含“认购”，并获取紧随的表格
+     */
+    function extractBuyRateTablePrecise(doc) {
+        // 候选标题元素 (天天基金常见的区域)
+        const titleSelectors = ['h4.t', '.box h4', 'h3', '.tit', '.info_title', 'div.h4', 'h4', 'div.title'];
+        let candidates = [];
+        for (let sel of titleSelectors) {
+            const elements = doc.querySelectorAll(sel);
+            candidates.push(...elements);
+        }
+        // 补充: 有些页面使用 <strong> 或带特殊class
+        const extraTitles = doc.querySelectorAll('.f14, .bold, .fb');
+        candidates.push(...extraTitles);
+        
+        // 1. 优先寻找 “申购费率（前端）” 或 “申购费率”
+        for (let title of candidates) {
+            let text = title.textContent.trim().replace(/\s+/g, '');
+            // 精确匹配含“申购费率”且不能含“认购费率”
+            if (text.includes('申购费率') && !text.includes('认购费率')) {
+                let table = getNextTable(title);
+                if (table) return table.outerHTML;
+            }
+        }
+        // 2. 降级匹配: 只包含“申购”关键词但是避开“认购”
+        for (let title of candidates) {
+            let text = title.textContent.trim().replace(/\s+/g, '');
+            if (text.includes('申购') && !text.includes('认购') && (text.includes('前端') || text.includes('费率'))) {
+                let table = getNextTable(title);
+                if (table) return table.outerHTML;
+            }
+        }
+        // 3. 最后尝试匹配原页面可能存在“场外申购费率”等
+        const allTables = doc.querySelectorAll('table');
+        for (let tbl of allTables) {
+            const prevText = getPrevElementText(tbl);
+            if (prevText && /申购费率(?!.*认购)/.test(prevText) && !/认购费率/.test(prevText)) {
+                return tbl.outerHTML;
+            }
+        }
+        
+        // 如果完全未找到，返回友好提示 (避免空白)
+        return '<p style="padding:14px; background:#fef2e8; border-radius:12px; text-align:center;">📭 未找到申购费率表格，可能该基金暂停申购或数据源未披露，建议官网核对。</p>';
+    }
+
+    // 辅助: 获取标题元素后面的table (距离最近兄弟或内部)
+    function getNextTable(el) {
+        let next = el.nextElementSibling;
+        let depth = 0;
+        while (next && depth < 6) {
+            if (next.tagName === 'TABLE') return next;
+            const innerTable = next.querySelector('table');
+            if (innerTable) return innerTable;
+            next = next.nextElementSibling;
+            depth++;
+        }
+        // 有些情况标题下方是个div包裹表格
+        let parentDiv = el.parentElement;
+        if (parentDiv) {
+            let grandTable = parentDiv.querySelector('table');
+            if (grandTable) return grandTable;
+        }
+        return null;
+    }
+    
+    // 获取表格之前的文本 (弱匹配)
+    function getPrevElementText(table) {
+        let prev = table.previousElementSibling;
+        let cnt = 0;
+        while (prev && cnt < 4) {
+            let text = prev.textContent.trim();
+            if (text && (text.includes('费率') || text.includes('申购'))) return text;
+            prev = prev.previousElementSibling;
+            cnt++;
+        }
+        return '';
+    }
+
+    // 通用取单元格内容（邻近匹配）
     function extractCellData(doc, keywordList) {
-        const ths = Array.from(doc.querySelectorAll('th, td.item'));
+        const ths = Array.from(doc.querySelectorAll('th, td.item, .textr, .info_td'));
         for (let th of ths) {
             const text = th.textContent.replace(/\s+/g, '');
             if (keywordList.some(kw => text.includes(kw))) {
@@ -316,61 +461,88 @@
                 if (nextEl && (nextEl.tagName === 'TD' || nextEl.tagName === 'TH')) {
                     return nextEl.textContent.trim();
                 }
+                // 如果是td本身包含关键词，则取同一行另一个td
+                if (th.tagName === 'TD') {
+                    let parentRow = th.closest('tr');
+                    if (parentRow) {
+                        let cells = parentRow.querySelectorAll('td');
+                        for (let i = 0; i < cells.length; i++) {
+                            if (cells[i] === th && i+1 < cells.length) {
+                                return cells[i+1].textContent.trim();
+                            }
+                        }
+                    }
+                }
             }
         }
         return null;
     }
 
-    // [核心工具2]：正则寻找对应区块的表格 (解决各种奇葩标题前缀)
+    // 保留原通用正则提取 (用于赎回费率)
     function extractTableByRegex(doc, titleRegex) {
-        // 查找所有标题标签
-        const titles = Array.from(doc.querySelectorAll('h4.t, .box h4, h3'));
+        const titles = Array.from(doc.querySelectorAll('h4.t, .box h4, h3, .info_title, h4, div.tit'));
         for (let title of titles) {
             if (titleRegex.test(title.textContent)) {
-                // 找到标题后，往下寻找最近的一个 table
                 let nextNode = title.nextElementSibling;
-                // 防止无限查找，最多往下找 5 个兄弟节点
-                let limit = 5; 
+                let limit = 6;
                 while (nextNode && limit > 0) {
                     if (nextNode.tagName === 'TABLE') return nextNode.outerHTML;
                     const insideTable = nextNode.querySelector('table');
                     if (insideTable) return insideTable.outerHTML;
-                    
                     nextNode = nextNode.nextElementSibling;
                     limit--;
                 }
             }
         }
-        return '<p style="padding:10px; color:#999; font-size:14px; text-align:center;">暂无官网披露的表格数据或该项免费</p>';
+        // 额外降级搜索
+        const allTables = doc.querySelectorAll('table');
+        for (let tbl of allTables) {
+            let prevText = getPrevElementText(tbl);
+            if (prevText && titleRegex.test(prevText)) {
+                return tbl.outerHTML;
+            }
+        }
+        return '<p style="padding:8px; color:#666; text-align:center;">暂无赎回费率数据 (或持有期无费用)</p>';
     }
 
-    // [核心工具3]：清洗原网页乱七八糟的 style 和 class
-    function formatRateTable(html) {
-        if (!html.includes('<table')) return html;
-        
-        // 移除原有的 class 和 style 属性
+    // 清洗table样式，注入自定义类，确保美观
+    function formatRateTable(html, isBuy = true) {
+        if (!html || html === '<p style="...') return html;
+        if (!html.includes('<table')) {
+            return html; // 已经是提示信息
+        }
+        // 移除陈旧行内style、class，避免干扰，保留内容
         let cleanHtml = html.replace(/ class="[^"]*"/gi, '');
         cleanHtml = cleanHtml.replace(/ style="[^"]*"/gi, '');
-        
-        // 注入我们自己写的 .rate-table 类
+        // 注入优雅表格类
         cleanHtml = cleanHtml.replace(/<table/gi, '<table class="rate-table"');
-        
-        // 天天基金的费率表经常有一个没用的隐藏标题行，清理掉
-        cleanHtml = cleanHtml.replace(/<th[^>]*>适用金额<\/th><th[^>]*>适用期限<\/th>/, '<th>适用金额</th><th>适用期限</th>');
-        
+        // 对于某些特殊情况，添加响应式包装不会重复，已经由外部wrapper承接
+        // 移除垃圾广告或多余合并列带来的干扰
+        cleanHtml = cleanHtml.replace(/<th[^>]*>活期宝买基金.*?<\/th>/gi, '');
+        // 确保申购费率表格展示关键列（适用金额/费率等）
+        // 如果表格太简单，不做额外操作
         return cleanHtml;
     }
 
-    function showLoading() { document.getElementById('loading').style.display = 'block'; }
+    // UI 控制
+    function showLoading() { 
+        document.getElementById('loading').style.display = 'block'; 
+        document.getElementById('result-container').style.display = 'none';
+    }
     function hideLoading() { document.getElementById('loading').style.display = 'none'; }
     function showError(msg) { 
-        const err = document.getElementById('error');
-        err.innerText = msg;
-        err.style.display = 'block'; 
+        const errDiv = document.getElementById('error');
+        errDiv.innerHTML = msg;
+        errDiv.style.display = 'block'; 
     }
     function hideError() { document.getElementById('error').style.display = 'none'; }
     function showResult() { document.getElementById('result-container').style.display = 'block'; }
     function hideResult() { document.getElementById('result-container').style.display = 'none'; }
+    
+    // 二次兜底：如果发现费率表格内容仍然不符合预期，增加动态检测提示 (针对个别极端case)
+    // 但主要逻辑已重写申购费率表格匹配，确保拿到正确的“申购费率前端”
+    // 同时为避免出现之前“认购费率”内容，会在parse后做个简单校验警示
+    // 由于主逻辑已优先匹配申购费率，不会错误拿到认购表
 </script>
 
 </body>

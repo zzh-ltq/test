@@ -1,227 +1,346 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>基金交易费率查询（稳定版）</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基金交易信息查询查询系统</title>
     <style>
-        body { background-color: #f5f7fa; font-family: system-ui, sans-serif; }
-        .card { background: #fff; border-radius: 10px; box-shadow: 0 2px 10px #00000012; }
-        .title-line { border-left:4px solid #165DFF; padding-left:10px; }
-        table { width:100%; border-collapse:collapse; margin-top:10px; }
-        th, td { border:1px solid #eee; padding:10px; text-align:center; }
-        th { background:#f9fafb; font-weight:500; }
-        .loading { color:#165DFF; }
-        .error { color:#ef4444; }
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background-color: #f4f5f7;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .search-box {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        .search-box input {
+            width: 300px;
+            padding: 10px 15px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px 0 0 4px;
+            outline: none;
+        }
+        .search-box button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .search-box button:hover {
+            background-color: #2980b9;
+        }
+        
+        /* 核心 UI 样式匹配提供的截图 */
+        .section-title {
+            background: linear-gradient(to bottom, #eef5fb, #ffffff);
+            padding: 10px 15px;
+            font-size: 15px;
+            font-weight: bold;
+            color: #333;
+            border-bottom: 2px solid #3498db;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .section-title::before {
+            content: '〇';
+            color: #3498db;
+            margin-right: 8px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #e0e0e0;
+            padding: 10px 15px;
+            text-align: left;
+        }
+        .data-table th {
+            background-color: #f2f2f2;
+            color: #666;
+            width: 15%;
+            text-align: center;
+            font-weight: normal;
+        }
+        .data-table td {
+            width: 35%;
+            color: #333;
+        }
+        
+        /* 费率表格特定样式 */
+        .rate-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .rate-table th, .rate-table td {
+            border: 1px solid #e0e0e0;
+            padding: 10px;
+            text-align: center;
+        }
+        .rate-table th {
+            background-color: #f2f2f2;
+            color: #666;
+            font-weight: normal;
+        }
+
+        #loading, #error {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 16px;
+        }
+        #loading { color: #f39c12; display: none; }
+        #error { color: #e74c3c; display: none; }
+        #result-container { display: none; }
+        
+        .fund-header {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 18px;
+            color: #e74c3c;
+            font-weight: bold;
+        }
     </style>
 </head>
-<body class="p-4 md:p-6">
-    <div class="max-w-4xl mx-auto">
-        <h1 class="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-6">基金交易信息查询（稳定版）</h1>
+<body>
 
-        <!-- 搜索栏 -->
-        <div class="card p-5 mb-5">
-            <div class="flex gap-3">
-                <input id="kw" type="text" placeholder="输入基金代码/基金名称（如002112/华夏成长混合）"
-                    class="flex-1 border border-gray-300 rounded px-4 py-2.5 outline-none focus:border-blue-500"/>
-                <button onclick="getFundInfo()" class="bg-blue-600 text-white px-5 py-2.5 rounded hover:bg-blue-700 transition-colors">
-                    查询
-                </button>
-            </div>
-        </div>
-
-        <!-- 错误/加载提示 -->
-        <div id="tipBox" class="text-center mb-3"></div>
-
-        <!-- 结果容器 -->
-        <div id="wrap" class="hidden">
-            <!-- 基础信息 -->
-            <div class="card p-5 mb-4">
-                <h2 class="title-line text-lg font-semibold mb-3" id="fundTitle"></h2>
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                    <div class="text-gray-600">基金代码：<span id="fCode" class="font-medium text-gray-800"></span></div>
-                    <div class="text-gray-600">基金类型：<span id="fType" class="font-medium text-gray-800"></span></div>
-                    <div class="text-gray-600">申购起点：<span id="buyMin" class="font-medium text-gray-800"></span></div>
-                    <div class="text-gray-600">定投起点：<span id="dtMin" class="font-medium text-gray-800"></span></div>
-                    <div class="text-gray-600">单日限购：<span id="dayLimit" class="font-medium text-gray-800"></span></div>
-                    <div class="text-gray-600">买入/卖出确认：<span id="tBuySell" class="font-medium text-gray-800"></span></div>
-                </div>
-            </div>
-
-            <!-- 申购费率 -->
-            <div class="card p-5 mb-4">
-                <h3 class="title-line font-semibold mb-3">申购费率（官方数据）</h3>
-                <table>
-                    <thead>
-                        <tr><th>购买金额区间</th><th>原始费率</th><th>平台优惠费率（1折参考）</th></tr>
-                    </thead>
-                    <tbody id="buyRateBody">
-                        <tr><td colspan="3" class="loading">加载中...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- 赎回费率 -->
-            <div class="card p-5">
-                <h3 class="title-line font-semibold mb-3">赎回费率（官方数据）</h3>
-                <table>
-                    <thead>
-                        <tr><th>持有期限</th><th>赎回费率</th></tr>
-                    </thead>
-                    <tbody id="sellRateBody">
-                        <tr><td colspan="2" class="loading">加载中...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+<div class="container">
+    <h2>基金交易规则实时查询</h2>
+    <div class="search-box">
+        <input type="text" id="fundInput" placeholder="输入基金代码、拼音或名称 (如: 000001或yfd)" onkeypress="handleKeyPress(event)">
+        <button onclick="executeSearch()">查询实时数据</button>
     </div>
 
-    <script>
-        // 全新稳定代理池，自动故障切换
-        const proxyList = [
-            "https://corsproxy.io/?url=",
-            "https://api.codetabs.com/v1/proxy?url=",
-            "https://proxy.cors.sh/",
-            "https://thingproxy.freeboard.io/fetch/",
-            "https://api.allorigins.win/raw?url="
-        ];
-        let proxyIndex = 0;
-        const MAX_RETRY = 3; // 每个代理最大重试次数
-        const TIMEOUT = 10000; // 10秒超时
+    <div id="loading">正在从天天基金接口获取实时数据，请稍候...</div>
+    <div id="error"></div>
 
-        // 带超时+重试的跨域请求
-        async function corsFetch(url) {
-            let lastError;
-            // 遍历代理池
-            for (let i = 0; i < proxyList.length; i++) {
-                const proxy = proxyList[proxyIndex];
-                const targetUrl = proxy + encodeURIComponent(url);
-                
-                // 单个代理重试MAX_RETRY次
-                for (let retry = 0; retry < MAX_RETRY; retry++) {
-                    try {
-                        // 超时控制
-                        const controller = new AbortController();
-                        const id = setTimeout(() => controller.abort(), TIMEOUT);
-                        
-                        const res = await fetch(targetUrl, {
-                            signal: controller.signal,
-                            headers: {
-                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                            }
-                        });
-                        
-                        clearTimeout(id);
-                        if (res.ok) return res;
-                        throw new Error(`HTTP ${res.status}`);
-                    } catch (err) {
-                        lastError = err;
-                        console.warn(`代理${proxyIndex} 第${retry+1}次请求失败:`, err);
-                        await new Promise(r => setTimeout(r, 500)); // 重试前等待
-                    }
-                }
-                // 切换下一个代理
-                proxyIndex = (proxyIndex + 1) % proxyList.length;
-            }
-            throw new Error(`所有代理请求失败: ${lastError?.message}`);
+    <div id="result-container">
+        <div class="fund-header" id="fundNameDisplay"></div>
+
+        <!-- 申购与赎回金额 -->
+        <div class="section-title">申购与赎回金额</div>
+        <table class="data-table">
+            <tr>
+                <th>申购起点</th>
+                <td id="val-buy-min">加载中...</td>
+                <th>定投起点</th>
+                <td id="val-sip-min">加载中...</td>
+                <th>日累计申购限额</th>
+                <td id="val-buy-max">加载中...</td>
+            </tr>
+        </table>
+
+        <!-- 交易确认日 -->
+        <div class="section-title">交易确认日</div>
+        <table class="data-table">
+            <tr>
+                <th>买入确认日</th>
+                <td id="val-buy-date">T+1</td>
+                <th>卖出确认日</th>
+                <td id="val-sell-date">T+1 (QDII一般为T+2)</td>
+            </tr>
+        </table>
+
+        <!-- 申购费率 -->
+        <div class="section-title">申购费率</div>
+        <div id="buy-rate-container">数据提取中...</div>
+
+        <!-- 赎回费率 -->
+        <div class="section-title">赎回费率</div>
+        <div id="sell-rate-container">数据提取中...</div>
+    </div>
+</div>
+
+<script>
+    // 监听回车键
+    function handleKeyPress(e) {
+        if (e.key === 'Enter') {
+            executeSearch();
+        }
+    }
+
+    // 1. JSONP 搜索基金代码 (解决前端跨域获取真实搜索建议的问题)
+    function executeSearch() {
+        const input = document.getElementById('fundInput').value.trim();
+        if (!input) return alert('请输入基金代码或名称');
+
+        showLoading();
+        hideError();
+        hideResult();
+
+        // 纯6位数字直接查
+        if (/^\d{6}$/.test(input)) {
+            fetchFundDetails(input, "基金代码: " + input);
+            return;
         }
 
-        // 入口：查询基金
-        async function getFundInfo() {
-            const kw = document.getElementById("kw").value.trim();
-            if (!kw) {
-                showTip("请输入基金代码或名称", "error");
-                return;
+        // 天天基金公开的 JSONP 搜索接口
+        const cbName = 'jsonp_search_' + Date.now();
+        const script = document.createElement('script');
+        script.src = `https://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx?m=1&key=${encodeURIComponent(input)}&callback=${cbName}`;
+        
+        window[cbName] = function(data) {
+            delete window[cbName];
+            document.body.removeChild(script);
+            
+            if (data && data.Datas && data.Datas.length > 0) {
+                // 默认取第一个搜索结果
+                const fund = data.Datas[0]; 
+                fetchFundDetails(fund.CODE, `${fund.NAME} (${fund.CODE})`);
+            } else {
+                showError("未找到相关基金，请检查输入法或代码是否正确。");
             }
-            showTip("正在查询中，请稍候...", "loading");
-            document.getElementById("wrap").classList.add("hidden");
+        };
 
-            try {
-                let fundCode = kw;
-                // 1. 非6位代码 → 先通过名称搜索匹配基金
-                if (!/^\d{6}$/.test(kw)) {
-                    const searchUrl = `https://fundsuggest.eastmoney.com/api/suggest/get?input=${encodeURIComponent(kw)}&type=1`;
-                    const res = await corsFetch(searchUrl);
-                    const json = await res.json();
-                    if (!json?.result?.datas?.length) throw new Error("未找到匹配的基金，请检查输入");
-                    fundCode = json.result.datas[0].code;
-                }
+        script.onerror = function() {
+            showError("搜索请求失败，请检查网络。");
+        }
+        document.body.appendChild(script);
+    }
 
-                // 2. 获取基金官方JS数据文件（稳定数据源）
-                const jsUrl = `https://fund.eastmoney.com/pingzhongdata/${fundCode}.js`;
-                const jsRes = await corsFetch(jsUrl);
-                const jsText = await jsRes.text();
+    // 2. 通过公共 CORS 代理抓取天天基金 F10 实时费率页面并解析
+    async function fetchFundDetails(code, displayName) {
+        document.getElementById('fundNameDisplay').innerText = displayName;
+        
+        // 目标天天基金真实页面 (包含了费率表和购买起点)
+        const feeUrl = `http://fundf10.eastmoney.com/jjfl_${code}.html`;
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(feeUrl)}`;
 
-                // 3. 解析JS文件中的关键数据
-                const fundName = jsText.match(/var fS_name = "([^"]+)";/)?.[1] || "未知基金";
-                const fundType = jsText.match(/var fS_type = "([^"]+)";/)?.[1] || "未知类型";
-                const isCoinFund = jsText.includes('var fund_iscoin = "1";'); // 是否货币基金
-
-                // 4. 基础规则（货币基金无申购赎回费）
-                let buyMin = "10元";
-                let dtMin = "10元";
-                let dayLimit = "无限制";
-                let tBuySell = "T+1/T+1";
-
-                // 5. 申购费率解析（股票/混合/债券基金）
-                let buyRateHtml = "";
-                if (isCoinFund) {
-                    buyRateHtml = `<tr><td>任意金额</td><td>0.00%</td><td>0.00%</td></tr>`;
-                } else {
-                    // 从JS中提取申购费率（ fallback 为常见费率）
-                    const rateMatch = jsText.match(/var fund_applyrate = "([^"]+)";/)?.[1];
-                    const rawRate = rateMatch ? parseFloat(rateMatch)/100 : 1.5;
-                    buyRateHtml = `
-                        <tr><td>小于100万元</td><td>${rawRate.toFixed(2)}%</td><td>${(rawRate*0.1).toFixed(2)}%</td></tr>
-                        <tr><td>100万元(含)-500万元</td><td>${(rawRate*0.8).toFixed(2)}%</td><td>${(rawRate*0.08).toFixed(2)}%</td></tr>
-                        <tr><td>500万元(含)以上</td><td>0.00%</td><td>0.00%</td></tr>
-                    `;
-                }
-
-                // 6. 赎回费率解析（通用规则 fallback，匹配天天基金标准）
-                let sellRateHtml = "";
-                if (isCoinFund) {
-                    sellRateHtml = `<tr><td>任意持有期限</td><td>0.00%</td></tr>`;
-                } else {
-                    sellRateHtml = `
-                        <tr><td>持有天数 < 7天</td><td>1.50%</td></tr>
-                        <tr><td>7天 ≤ 持有天数 < 30天</td><td>0.50%</td></tr>
-                        <tr><td>持有天数 ≥ 30天</td><td>0.00%</td></tr>
-                    `;
-                }
-
-                // 7. 渲染页面
-                document.getElementById("fundTitle").innerText = `${fundName} (${fundCode})`;
-                document.getElementById("fCode").innerText = fundCode;
-                document.getElementById("fType").innerText = fundType;
-                document.getElementById("buyMin").innerText = buyMin;
-                document.getElementById("dtMin").innerText = dtMin;
-                document.getElementById("dayLimit").innerText = dayLimit;
-                document.getElementById("tBuySell").innerText = tBuySell;
-                document.getElementById("buyRateBody").innerHTML = buyRateHtml;
-                document.getElementById("sellRateBody").innerHTML = sellRateHtml;
-
-                document.getElementById("wrap").classList.remove("hidden");
-                showTip("查询成功", "success");
-            } catch (e) {
-                console.error(e);
-                showTip(`查询失败：${e.message}，请稍后重试`, "error");
+        try {
+            const response = await fetch(proxyUrl);
+            const data = await response.json();
+            
+            if (!data.contents || data.contents.includes('暂无数据')) {
+                throw new Error("未能获取到该基金的详情，可能是场内基金或代码错误。");
             }
+
+            parseAndRenderData(data.contents);
+            showResult();
+        } catch (error) {
+            showError("数据提取失败: " + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // 3. 解析 DOM 提取数据 (核心逻辑)
+    function parseAndRenderData(htmlString) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlString, "text/html");
+
+        // --- 提取：申购与赎回金额 ---
+        // 交易状态表格通常在最前面
+        const tradeTable = doc.querySelector('.box .txt_in table');
+        if (tradeTable) {
+            const textContent = tradeTable.textContent;
+            
+            // 使用正则或 DOM 遍历抓取金额（天天基金页面格式可能微调，这里做容错匹配）
+            document.getElementById('val-buy-min').innerText = extractValueAfterKeyword(tradeTable, '申购起点') || '10.00元 (预估)';
+            document.getElementById('val-sip-min').innerText = extractValueAfterKeyword(tradeTable, '定投起点') || '10.00元 (预估)';
+            document.getElementById('val-buy-max').innerText = extractValueAfterKeyword(tradeTable, '单日单账户申购最高金额') || '无限制';
         }
 
-        // 提示信息
-        function showTip(text, type) {
-            const el = document.getElementById("tipBox");
-            el.classList.remove("loading", "error", "success");
-            el.innerText = text;
-            if (type) el.classList.add(type);
-        }
+        // --- 提取：申购费率表格 ---
+        const buyRateHtml = extractTableBySectionTitle(doc, '申购费率（前端）') || extractTableBySectionTitle(doc, '申购费率');
+        document.getElementById('buy-rate-container').innerHTML = cleanAndFormatTable(buyRateHtml);
 
-        // 回车查询
-        document.getElementById("kw").addEventListener("keydown", e => {
-            if (e.key === "Enter") getFundInfo();
-        })
-    </script>
+        // --- 提取：赎回费率表格 ---
+        const sellRateHtml = extractTableBySectionTitle(doc, '赎回费率');
+        document.getElementById('sell-rate-container').innerHTML = cleanAndFormatTable(sellRateHtml);
+        
+        // 确认日判断：如果带有 QDII 字样，一般是 T+2
+        const name = document.getElementById('fundNameDisplay').innerText;
+        if(name.toUpperCase().includes('QDII')) {
+            document.getElementById('val-buy-date').innerText = 'T+2';
+            document.getElementById('val-sell-date').innerText = 'T+2 / T+3';
+        } else {
+            document.getElementById('val-buy-date').innerText = 'T+1';
+            document.getElementById('val-sell-date').innerText = 'T+1';
+        }
+    }
+
+    // 辅助工具：根据关键词寻找值
+    function extractValueAfterKeyword(tableNode, keyword) {
+        const ths = tableNode.querySelectorAll('th');
+        for (let th of ths) {
+            if (th.textContent.includes(keyword)) {
+                return th.nextElementSibling ? th.nextElementSibling.textContent.trim() : null;
+            }
+        }
+        return null;
+    }
+
+    // 辅助工具：定位具体的费率表格
+    function extractTableBySectionTitle(doc, titleText) {
+        const titles = doc.querySelectorAll('h4.t');
+        for (let title of titles) {
+            if (title.textContent.includes(titleText)) {
+                // 天天基金的结构通常是: <h4 class="t">...</h4> <div class="txt_in"> <table>...</table> </div>
+                const container = title.nextElementSibling;
+                if (container && container.querySelector('table')) {
+                    return container.querySelector('table').outerHTML;
+                }
+            }
+        }
+        return '<p style="padding:10px; color:#666;">官方未披露或免收该项费用</p>';
+    }
+
+    // 辅助工具：清洗抓取到的 HTML 表格，注入我们的样式
+    function cleanAndFormatTable(tableHtml) {
+        if(tableHtml.startsWith('<p')) return tableHtml;
+        
+        // 替换原始 table 标签，应用自定义样式类
+        let cleanHtml = tableHtml.replace(/<table[^>]*>/i, '<table class="rate-table">');
+        
+        // 移除原网站的内联样式和不需要的类，保持页面整洁
+        cleanHtml = cleanHtml.replace(/ class="[^"]*"/g, ''); 
+        cleanHtml = cleanHtml.replace(/ style="[^"]*"/g, '');
+        cleanHtml = cleanHtml.replace(/<table/g, '<table class="rate-table"');
+        
+        return cleanHtml;
+    }
+
+    // UI 状态控制函数
+    function showLoading() { document.getElementById('loading').style.display = 'block'; }
+    function hideLoading() { document.getElementById('loading').style.display = 'none'; }
+    function showError(msg) { 
+        const err = document.getElementById('error');
+        err.innerText = msg;
+        err.style.display = 'block'; 
+    }
+    function hideError() { document.getElementById('error').style.display = 'none'; }
+    function showResult() { document.getElementById('result-container').style.display = 'block'; }
+    function hideResult() { document.getElementById('result-container').style.display = 'none'; }
+
+</script>
 </body>
 </html>

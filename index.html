@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>基金交易信息查询查询系统</title>
+    <title>基金交易规则实时查询</title>
     <style>
         body {
             font-family: 'Microsoft YaHei', Arial, sans-serif;
@@ -28,7 +28,7 @@
         .search-box {
             display: flex;
             justify-content: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
         .search-box input {
             width: 300px;
@@ -52,7 +52,6 @@
             background-color: #2980b9;
         }
         
-        /* 核心 UI 样式匹配提供的截图 */
         .section-title {
             background: linear-gradient(to bottom, #eef5fb, #ffffff);
             padding: 10px 15px;
@@ -73,30 +72,35 @@
             font-weight: bold;
         }
 
+        /* 修复排版挤压问题的基础表格样式 */
         .data-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 14px;
             margin-bottom: 10px;
+            table-layout: fixed; /* 强制表格等分，防止文本把列撑破 */
         }
         .data-table th, .data-table td {
             border: 1px solid #e0e0e0;
-            padding: 10px 15px;
+            padding: 10px;
             text-align: left;
+            word-wrap: break-word;
         }
         .data-table th {
             background-color: #f2f2f2;
             color: #666;
-            width: 15%;
             text-align: center;
             font-weight: normal;
         }
-        .data-table td {
-            width: 35%;
-            color: #333;
-        }
         
-        /* 费率表格特定样式 */
+        /* 针对 6 列的申购金额表单独调整宽度比例 */
+        .col-6 th { width: 14%; }
+        .col-6 td { width: 19%; }
+        
+        /* 针对 4 列的确认日表单独调整宽度比例 */
+        .col-4 th { width: 20%; }
+        .col-4 td { width: 30%; }
+        
         .rate-table {
             width: 100%;
             border-collapse: collapse;
@@ -116,10 +120,10 @@
         #loading, #error {
             text-align: center;
             margin-top: 20px;
-            font-size: 16px;
+            font-size: 15px;
         }
         #loading { color: #f39c12; display: none; }
-        #error { color: #e74c3c; display: none; }
+        #error { color: #e74c3c; display: none; margin-top: 10px;}
         #result-container { display: none; }
         
         .fund-header {
@@ -136,11 +140,11 @@
 <div class="container">
     <h2>基金交易规则实时查询</h2>
     <div class="search-box">
-        <input type="text" id="fundInput" placeholder="输入基金代码、拼音或名称 (如: 000001或yfd)" onkeypress="handleKeyPress(event)">
+        <input type="text" id="fundInput" placeholder="输入基金代码或拼音 (如: 001018)" onkeypress="handleKeyPress(event)">
         <button onclick="executeSearch()">查询实时数据</button>
     </div>
 
-    <div id="loading">正在从天天基金接口获取实时数据，请稍候...</div>
+    <div id="loading">📡 正在连接代理节点获取实时数据，请耐心稍候...</div>
     <div id="error"></div>
 
     <div id="result-container">
@@ -148,188 +152,215 @@
 
         <!-- 申购与赎回金额 -->
         <div class="section-title">申购与赎回金额</div>
-        <table class="data-table">
+        <table class="data-table col-6">
             <tr>
                 <th>申购起点</th>
-                <td id="val-buy-min">加载中...</td>
+                <td id="val-buy-min">---</td>
                 <th>定投起点</th>
-                <td id="val-sip-min">加载中...</td>
+                <td id="val-sip-min">---</td>
                 <th>日累计申购限额</th>
-                <td id="val-buy-max">加载中...</td>
+                <td id="val-buy-max">---</td>
             </tr>
         </table>
 
         <!-- 交易确认日 -->
         <div class="section-title">交易确认日</div>
-        <table class="data-table">
+        <table class="data-table col-4">
             <tr>
                 <th>买入确认日</th>
-                <td id="val-buy-date">T+1</td>
+                <td id="val-buy-date">---</td>
                 <th>卖出确认日</th>
-                <td id="val-sell-date">T+1 (QDII一般为T+2)</td>
+                <td id="val-sell-date">---</td>
             </tr>
         </table>
 
         <!-- 申购费率 -->
         <div class="section-title">申购费率</div>
-        <div id="buy-rate-container">数据提取中...</div>
+        <div id="buy-rate-container">获取中...</div>
 
         <!-- 赎回费率 -->
         <div class="section-title">赎回费率</div>
-        <div id="sell-rate-container">数据提取中...</div>
+        <div id="sell-rate-container">获取中...</div>
     </div>
 </div>
 
 <script>
-    // 监听回车键
     function handleKeyPress(e) {
-        if (e.key === 'Enter') {
-            executeSearch();
-        }
+        if (e.key === 'Enter') executeSearch();
     }
 
-    // 1. JSONP 搜索基金代码 (解决前端跨域获取真实搜索建议的问题)
     function executeSearch() {
         const input = document.getElementById('fundInput').value.trim();
-        if (!input) return alert('请输入基金代码或名称');
+        if (!input) return alert('请输入基金代码');
 
         showLoading();
         hideError();
         hideResult();
 
-        // 纯6位数字直接查
+        // 优先当作纯代码处理，或者使用 JSONP 搜索
         if (/^\d{6}$/.test(input)) {
-            fetchFundDetails(input, "基金代码: " + input);
-            return;
+            fetchFundData(input, "基金代码: " + input);
+        } else {
+            searchByKeyword(input);
         }
+    }
 
-        // 天天基金公开的 JSONP 搜索接口
+    // 1. 关键词转代码 (JSONP)
+    function searchByKeyword(keyword) {
         const cbName = 'jsonp_search_' + Date.now();
         const script = document.createElement('script');
-        script.src = `https://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx?m=1&key=${encodeURIComponent(input)}&callback=${cbName}`;
+        script.src = `https://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx?m=1&key=${encodeURIComponent(keyword)}&callback=${cbName}`;
         
         window[cbName] = function(data) {
-            delete window[cbName];
             document.body.removeChild(script);
-            
+            delete window[cbName];
             if (data && data.Datas && data.Datas.length > 0) {
-                // 默认取第一个搜索结果
                 const fund = data.Datas[0]; 
-                fetchFundDetails(fund.CODE, `${fund.NAME} (${fund.CODE})`);
+                fetchFundData(fund.CODE, `${fund.NAME} (${fund.CODE})`);
             } else {
-                showError("未找到相关基金，请检查输入法或代码是否正确。");
+                showError("未找到相关基金，请确认名称或代码。");
+                hideLoading();
             }
         };
-
-        script.onerror = function() {
-            showError("搜索请求失败，请检查网络。");
-        }
+        script.onerror = () => { showError("网络异常，无法搜索基金。"); hideLoading(); };
         document.body.appendChild(script);
     }
 
-    // 2. 通过公共 CORS 代理抓取天天基金 F10 实时费率页面并解析
-    async function fetchFundDetails(code, displayName) {
+    // 2. 核心请求：多代理回退机制获取 HTML
+    async function fetchFundData(code, displayName) {
         document.getElementById('fundNameDisplay').innerText = displayName;
+        const targetUrl = `http://fundf10.eastmoney.com/jjfl_${code}.html`;
         
-        // 目标天天基金真实页面 (包含了费率表和购买起点)
-        const feeUrl = `http://fundf10.eastmoney.com/jjfl_${code}.html`;
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(feeUrl)}`;
+        // 配置 3 个主流免费前端代理节点，解决 522 报错和跨域限制
+        const proxyQueue = [
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
+            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+            `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`
+        ];
 
-        try {
-            const response = await fetch(proxyUrl);
-            const data = await response.json();
-            
-            if (!data.contents || data.contents.includes('暂无数据')) {
-                throw new Error("未能获取到该基金的详情，可能是场内基金或代码错误。");
+        let htmlString = null;
+        let fetchError = "";
+
+        // 依次尝试每个代理，成功一个就停止
+        for (let i = 0; i < proxyQueue.length; i++) {
+            try {
+                const response = await fetch(proxyQueue[i]);
+                if (!response.ok) throw new Error(`Status ${response.status}`);
+                
+                // 处理不同代理返回的数据格式
+                if (proxyQueue[i].includes('allorigins')) {
+                    const json = await response.json();
+                    htmlString = json.contents;
+                } else {
+                    htmlString = await response.text();
+                }
+
+                // 校验获取到的内容是否为有效网页
+                if (htmlString && htmlString.includes('<title')) {
+                    console.log(`使用代理节点 ${i+1} 获取成功`);
+                    break; 
+                } else {
+                    throw new Error("返回数据不是有效HTML");
+                }
+            } catch (err) {
+                console.warn(`代理节点 ${i+1} 失败:`, err.message);
+                fetchError = err.message;
             }
+        }
 
-            parseAndRenderData(data.contents);
+        hideLoading();
+
+        if (htmlString) {
+            parseF10Html(htmlString, displayName);
             showResult();
-        } catch (error) {
-            showError("数据提取失败: " + error.message);
-        } finally {
-            hideLoading();
+        } else {
+            showError(`数据获取彻底失败 (所有代理节点均被拒绝)。原因: ${fetchError}。这可能是天天基金的防爬机制升级，请稍后再试。`);
         }
     }
 
-    // 3. 解析 DOM 提取数据 (核心逻辑)
-    function parseAndRenderData(htmlString) {
+    // 3. 增强版模糊 DOM 解析
+    function parseF10Html(htmlString, displayName) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlString, "text/html");
 
-        // --- 提取：申购与赎回金额 ---
-        // 交易状态表格通常在最前面
-        const tradeTable = doc.querySelector('.box .txt_in table');
-        if (tradeTable) {
-            const textContent = tradeTable.textContent;
-            
-            // 使用正则或 DOM 遍历抓取金额（天天基金页面格式可能微调，这里做容错匹配）
-            document.getElementById('val-buy-min').innerText = extractValueAfterKeyword(tradeTable, '申购起点') || '10.00元 (预估)';
-            document.getElementById('val-sip-min').innerText = extractValueAfterKeyword(tradeTable, '定投起点') || '10.00元 (预估)';
-            document.getElementById('val-buy-max').innerText = extractValueAfterKeyword(tradeTable, '单日单账户申购最高金额') || '无限制';
+        // 如果获取到的是错误页
+        if (doc.body.textContent.includes('暂无数据') || doc.body.textContent.includes('访问被拦截')) {
+            showError("该基金暂无交易数据，或为场内 ETF，无场外费率。");
+            return;
         }
 
-        // --- 提取：申购费率表格 ---
-        const buyRateHtml = extractTableBySectionTitle(doc, '申购费率（前端）') || extractTableBySectionTitle(doc, '申购费率');
-        document.getElementById('buy-rate-container').innerHTML = cleanAndFormatTable(buyRateHtml);
+        // --- 提取：金额指标 (容错多种关键词) ---
+        document.getElementById('val-buy-min').innerText = extractCellData(doc, ['起购金额', '申购起点', '首次购买额', '最小申购金额']) || '10.00元';
+        document.getElementById('val-sip-min').innerText = extractCellData(doc, ['定投起点', '定投起购金额', '定投金额']) || '10.00元';
+        document.getElementById('val-buy-max').innerText = extractCellData(doc, ['单日单账户', '累计申购限额', '单日最高', '最多金额']) || '无限制';
 
-        // --- 提取：赎回费率表格 ---
-        const sellRateHtml = extractTableBySectionTitle(doc, '赎回费率');
-        document.getElementById('sell-rate-container').innerHTML = cleanAndFormatTable(sellRateHtml);
-        
-        // 确认日判断：如果带有 QDII 字样，一般是 T+2
-        const name = document.getElementById('fundNameDisplay').innerText;
-        if(name.toUpperCase().includes('QDII')) {
-            document.getElementById('val-buy-date').innerText = 'T+2';
-            document.getElementById('val-sell-date').innerText = 'T+2 / T+3';
-        } else {
-            document.getElementById('val-buy-date').innerText = 'T+1';
-            document.getElementById('val-sell-date').innerText = 'T+1';
-        }
+        // --- 提取：确认日 ---
+        document.getElementById('val-buy-date').innerText = extractCellData(doc, ['买入确认日', '申购确认日']) || 'T+1';
+        document.getElementById('val-sell-date').innerText = extractCellData(doc, ['卖出确认日', '赎回确认日']) || 'T+1';
+
+        // --- 提取：费率表格 (使用正则宽泛匹配标题) ---
+        const buyHtml = extractTableByRegex(doc, /申购费率|前端|认购费率/);
+        const sellHtml = extractTableByRegex(doc, /赎回费率/);
+
+        document.getElementById('buy-rate-container').innerHTML = formatRateTable(buyHtml);
+        document.getElementById('sell-rate-container').innerHTML = formatRateTable(sellHtml);
     }
 
-    // 辅助工具：根据关键词寻找值
-    function extractValueAfterKeyword(tableNode, keyword) {
-        const ths = tableNode.querySelectorAll('th');
+    // [核心工具1]：在整个网页所有表格里找指定的列头部词，返回它右侧的格子内容
+    function extractCellData(doc, keywordList) {
+        const ths = Array.from(doc.querySelectorAll('th, td.item'));
         for (let th of ths) {
-            if (th.textContent.includes(keyword)) {
-                return th.nextElementSibling ? th.nextElementSibling.textContent.trim() : null;
+            const text = th.textContent.replace(/\s+/g, '');
+            if (keywordList.some(kw => text.includes(kw))) {
+                let nextEl = th.nextElementSibling;
+                if (nextEl && (nextEl.tagName === 'TD' || nextEl.tagName === 'TH')) {
+                    return nextEl.textContent.trim();
+                }
             }
         }
         return null;
     }
 
-    // 辅助工具：定位具体的费率表格
-    function extractTableBySectionTitle(doc, titleText) {
-        const titles = doc.querySelectorAll('h4.t');
+    // [核心工具2]：正则寻找对应区块的表格 (解决各种奇葩标题前缀)
+    function extractTableByRegex(doc, titleRegex) {
+        // 查找所有标题标签
+        const titles = Array.from(doc.querySelectorAll('h4.t, .box h4, h3'));
         for (let title of titles) {
-            if (title.textContent.includes(titleText)) {
-                // 天天基金的结构通常是: <h4 class="t">...</h4> <div class="txt_in"> <table>...</table> </div>
-                const container = title.nextElementSibling;
-                if (container && container.querySelector('table')) {
-                    return container.querySelector('table').outerHTML;
+            if (titleRegex.test(title.textContent)) {
+                // 找到标题后，往下寻找最近的一个 table
+                let nextNode = title.nextElementSibling;
+                // 防止无限查找，最多往下找 5 个兄弟节点
+                let limit = 5; 
+                while (nextNode && limit > 0) {
+                    if (nextNode.tagName === 'TABLE') return nextNode.outerHTML;
+                    const insideTable = nextNode.querySelector('table');
+                    if (insideTable) return insideTable.outerHTML;
+                    
+                    nextNode = nextNode.nextElementSibling;
+                    limit--;
                 }
             }
         }
-        return '<p style="padding:10px; color:#666;">官方未披露或免收该项费用</p>';
+        return '<p style="padding:10px; color:#999; font-size:14px; text-align:center;">暂无官网披露的表格数据或该项免费</p>';
     }
 
-    // 辅助工具：清洗抓取到的 HTML 表格，注入我们的样式
-    function cleanAndFormatTable(tableHtml) {
-        if(tableHtml.startsWith('<p')) return tableHtml;
+    // [核心工具3]：清洗原网页乱七八糟的 style 和 class
+    function formatRateTable(html) {
+        if (!html.includes('<table')) return html;
         
-        // 替换原始 table 标签，应用自定义样式类
-        let cleanHtml = tableHtml.replace(/<table[^>]*>/i, '<table class="rate-table">');
+        // 移除原有的 class 和 style 属性
+        let cleanHtml = html.replace(/ class="[^"]*"/gi, '');
+        cleanHtml = cleanHtml.replace(/ style="[^"]*"/gi, '');
         
-        // 移除原网站的内联样式和不需要的类，保持页面整洁
-        cleanHtml = cleanHtml.replace(/ class="[^"]*"/g, ''); 
-        cleanHtml = cleanHtml.replace(/ style="[^"]*"/g, '');
-        cleanHtml = cleanHtml.replace(/<table/g, '<table class="rate-table"');
+        // 注入我们自己写的 .rate-table 类
+        cleanHtml = cleanHtml.replace(/<table/gi, '<table class="rate-table"');
+        
+        // 天天基金的费率表经常有一个没用的隐藏标题行，清理掉
+        cleanHtml = cleanHtml.replace(/<th[^>]*>适用金额<\/th><th[^>]*>适用期限<\/th>/, '<th>适用金额</th><th>适用期限</th>');
         
         return cleanHtml;
     }
 
-    // UI 状态控制函数
     function showLoading() { document.getElementById('loading').style.display = 'block'; }
     function hideLoading() { document.getElementById('loading').style.display = 'none'; }
     function showError(msg) { 
@@ -340,7 +371,7 @@
     function hideError() { document.getElementById('error').style.display = 'none'; }
     function showResult() { document.getElementById('result-container').style.display = 'block'; }
     function hideResult() { document.getElementById('result-container').style.display = 'none'; }
-
 </script>
+
 </body>
 </html>

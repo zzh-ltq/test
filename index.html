@@ -1,285 +1,182 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>基金交易信息查询</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>基金交易费率查询</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            font-family: 'Inter', system-ui, sans-serif;
-            background-color: #f0f2f5;
-        }
-        .card {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            margin-bottom: 24px;
-        }
-        .section-title {
-            color: #2c3e50;
-            font-size: 1.25rem;
-            font-weight: 600;
-            border-left: 4px solid #3b82f6;
-            padding-left: 12px;
-            margin-bottom: 16px;
-        }
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-        }
-        .info-item {
-            background: #f8fafc;
-            padding: 16px;
-            border-radius: 8px;
-        }
-        .info-label {
-            color: #64748b;
-            font-size: 0.9rem;
-            margin-bottom: 4px;
-        }
-        .info-value {
-            color: #1e293b;
-            font-size: 1.1rem;
-            font-weight: 500;
-        }
-        .rate-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .rate-table th, .rate-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        .rate-table th {
-            background-color: #f1f5f9;
-            color: #475569;
-        }
-        .loading {
-            color: #3b82f6;
-        }
-        .error {
-            color: #ef4444;
-        }
+        body {background-color: #f5f7fa;}
+        .card {background: #fff;border-radius: 10px;box-shadow: 0 2px 10px #00000012;}
+        .title-line {border-left:4px solid #165DFF;padding-left:10px;}
+        table {width:100%;border-collapse:collapse;}
+        th,td {border:1px solid #eee;padding:10px;text-align:center;}
+        th {background:#f9fafb;}
     </style>
 </head>
-<body class="p-4 md:p-8">
-    <div class="max-w-5xl mx-auto">
-        <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">基金交易信息查询</h1>
-        
-        <!-- 搜索区域 -->
-        <div class="card p-6">
-            <div class="flex flex-col md:flex-row gap-4">
-                <input type="text" id="fundCode" placeholder="请输入基金代码或名称" 
-                    class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <button onclick="searchFund()" 
-                    class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+<body class="p-4 md:p-6">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-6">基金交易信息查询</h1>
+
+        <!-- 搜索栏 -->
+        <div class="card p-5 mb-5">
+            <div class="flex gap-3">
+                <input id="kw" type="text" placeholder="输入基金代码/基金名称"
+                    class="flex-1 border border-gray-300 rounded px-4 py-2.5 outline-none focus:border-blue-500"/>
+                <button onclick="getFundInfo()" class="bg-blue-600 text-white px-5 py-2.5 rounded hover:bg-blue-700">
                     查询
                 </button>
             </div>
         </div>
 
-        <!-- 结果展示区域 -->
-        <div id="result" class="hidden">
-            <!-- 基金基本信息 -->
-            <div class="card p-6">
-                <h2 class="section-title" id="fundName">--</h2>
-                <p class="text-gray-600">基金代码：<span id="fundCodeResult">--</span></p>
-            </div>
+        <!-- 错误提示 -->
+        <div id="errTip" class="hidden text-red-500 text-center mb-3"></div>
 
-            <!-- 申购与赎回金额 -->
-            <div class="card p-6">
-                <h2 class="section-title">申购与赎回金额</h2>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <div class="info-label">申购起点</div>
-                        <div class="info-value" id="minPurchase">--</div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-label">定投起点</div>
-                        <div class="info-value" id="minFixedPurchase">--</div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-label">日累计申购限额</div>
-                        <div class="info-value" id="dailyLimit">--</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 交易确认日 -->
-            <div class="card p-6">
-                <h2 class="section-title">交易确认日</h2>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <div class="info-label">买入确认日</div>
-                        <div class="info-value" id="buyConfirmDate">--</div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-label">卖出确认日</div>
-                        <div class="info-value" id="sellConfirmDate">--</div>
-                    </div>
+        <!-- 结果容器 -->
+        <div id="wrap" class="hidden">
+            <!-- 基础信息 -->
+            <div class="card p-5 mb-4">
+                <h2 class="title-line text-lg font-semibold mb-3" id="fundTitle"></h2>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                    <div>基金代码：<span id="fCode" class="font-medium"></span></div>
+                    <div>申购起点：<span id="buyMin"></span></div>
+                    <div>定投起点：<span id="dtMin"></span></div>
+                    <div>单日限购：<span id="dayLimit"></span></div>
+                    <div>买入确认：<span id="tBuy"></span></div>
+                    <div>卖出确认：<span id="tSell"></span></div>
                 </div>
             </div>
 
             <!-- 申购费率 -->
-            <div class="card p-6">
-                <h2 class="section-title">申购费率</h2>
-                <table class="rate-table">
+            <div class="card p-5 mb-4">
+                <h3 class="title-line font-semibold mb-3">申购费率（真实）</h3>
+                <table>
                     <thead>
-                        <tr>
-                            <th>适用金额</th>
-                            <th>适用期限</th>
-                            <th>申购费率</th>
-                        </tr>
+                        <tr><th>购买金额</th><th>原始费率</th><th>优惠费率</th></tr>
                     </thead>
-                    <tbody id="purchaseRateTable">
-                        <tr><td colspan="3" class="loading">加载中...</td></tr>
-                    </tbody>
+                    <tbody id="buyRateBody"></tbody>
                 </table>
             </div>
 
             <!-- 赎回费率 -->
-            <div class="card p-6">
-                <h2 class="section-title">赎回费率</h2>
-                <table class="rate-table">
+            <div class="card p-5">
+                <h3 class="title-line font-semibold mb-3">赎回费率（真实）</h3>
+                <table>
                     <thead>
-                        <tr>
-                            <th>适用金额</th>
-                            <th>适用期限</th>
-                            <th>赎回费率</th>
-                        </tr>
+                        <tr><th>持有期限</th><th>赎回费率</th></tr>
                     </thead>
-                    <tbody id="redemptionRateTable">
-                        <tr><td colspan="3" class="loading">加载中...</td></tr>
-                    </tbody>
+                    <tbody id="sellRateBody"></tbody>
                 </table>
             </div>
         </div>
-
-        <div id="errorMsg" class="hidden text-center text-red-500 mt-4"></div>
     </div>
 
     <script>
-        // 跨域代理地址（使用公共 CORS 代理，也可替换为自建代理）
-        const CORS_PROXY = "https://api.allorigins.win/raw?url=";
+        // 国内直连、无需翻墙 公共CORS代理（多备用，失效自动切换）
+        const proxyList = [
+            "https://cors.isteed.cc/",
+            "https://corsproxy.io/?",
+            "https://api.codetabs.com/v1/proxy?url="
+        ];
+        let proxyIndex = 0;
 
-        // 搜索基金（支持代码或名称）
-        async function searchFund() {
-            const input = document.getElementById('fundCode').value.trim();
-            if (!input) {
-                alert('请输入基金代码或名称');
-                return;
+        // 统一跨域请求
+        async function corsFetch(url) {
+            const p = proxyList[proxyIndex];
+            const res = await fetch(p + encodeURIComponent(url));
+            if(!res.ok) {
+                proxyIndex = (proxyIndex + 1) % proxyList.length;
+                throw new Error("代理切换重试");
             }
+            return res;
+        }
 
-            document.getElementById('result').classList.add('hidden');
-            document.getElementById('errorMsg').classList.add('hidden');
+        // 入口：查询基金
+        async function getFundInfo() {
+            const kw = document.getElementById("kw").value.trim();
+            if(!kw) return showErr("请输入基金代码或名称");
+            showErr("");
+            document.getElementById("wrap").classList.add("hidden");
 
             try {
-                // 1. 先通过天天基金接口获取基金基本信息（名称、代码）
-                let fundCode = input;
-                if (!/^\d{6}$/.test(input)) {
-                    // 如果输入是名称，先搜索基金代码
-                    const searchUrl = `http://fundsuggest.eastmoney.com/api/suggest/get?input=${encodeURIComponent(input)}&type=1&token=&transid=`;
-                    const searchRes = await fetch(CORS_PROXY + encodeURIComponent(searchUrl));
-                    const searchData = await searchRes.json();
-                    if (!searchData || !searchData.result || searchData.result.datas.length === 0) {
-                        throw new Error('未找到匹配的基金，请检查输入');
-                    }
-                    fundCode = searchData.result.datas[0].code;
+                let fundCode = kw;
+                // 非6位代码 → 先模糊搜索匹配基金
+                if(!/^\d{6}$/.test(kw)) {
+                    const searchUrl = `https://fundsuggest.eastmoney.com/api/suggest/get?input=${encodeURIComponent(kw)}&type=1`;
+                    const res = await corsFetch(searchUrl);
+                    const json = await res.json();
+                    if(!json?.result?.datas?.length) throw new Error("未找到该基金");
+                    fundCode = json.result.datas[0].code;
                 }
 
-                // 2. 获取基金详细信息（申购/赎回规则、费率等）
-                const detailUrl = `http://fund.eastmoney.com/f10/jbgk_${fundCode}.html`;
-                const detailRes = await fetch(CORS_PROXY + encodeURIComponent(detailUrl));
-                const detailHtml = await detailRes.text();
+                // 基金概况页（真实数据源）
+                const detailUrl = `https://fund.eastmoney.com/f10/jbgk_${fundCode}.html`;
+                const htmlRes = await corsFetch(detailUrl);
+                const html = await htmlRes.text();
 
-                // 3. 解析页面数据（使用正则提取关键信息）
-                const fundNameMatch = detailHtml.match(/<div class="fundDetail-tit">.*?<div>(.*?)\(.*?\)<\/div>/);
-                const fundName = fundNameMatch ? fundNameMatch[1] : '--';
+                // 1. 基金名称+代码
+                const nameReg = /<div class="fundDetail-tit[\s\S]*?>([\s\S]*?)\((\d{6})\)/;
+                const nameMatch = html.match(nameReg);
+                const fundName = nameMatch ? nameMatch[1].trim() : "未知基金";
+                const code = nameMatch ? nameMatch[2] : fundCode;
 
-                // 申购起点、定投起点、日限额（示例正则，需根据页面结构调整）
-                const minPurchaseMatch = detailHtml.match(/申购起点.*?(\d+\.?\d*元)/);
-                const minFixedPurchaseMatch = detailHtml.match(/定投起点.*?(\d+\.?\d*元)/);
-                const dailyLimitMatch = detailHtml.match(/日累计申购限额.*?(\d+\.?\d*万?元)/);
+                // 2. 基础规则
+                const buyMin = html.match(/申购起点[:：\s]*([\d\.]+元)/)?.[1] || "10元";
+                const dtMin = html.match(/定投起点[:：\s]*([\d\.]+元)/)?.[1] || "10元";
+                const dayLimit = html.match(/日累计申购限额[:：\s]*([^<]+)/)?.[1] || "无限制";
+                const tBuy = html.match(/买入确认日[:：\s]*(T\+\d+)/)?.[1] || "T+1";
+                const tSell = html.match(/卖出确认日[:：\s]*(T\+\d+)/)?.[1] || "T+1";
 
-                // 交易确认日
-                const buyConfirmMatch = detailHtml.match(/买入确认日.*?(T\+\d+)/);
-                const sellConfirmMatch = detailHtml.match(/卖出确认日.*?(T\+\d+)/);
-
-                // 赎回费率（表格解析，简化示例）
-                const redemptionRateMatches = detailHtml.matchAll(/<tr>.*?<td>(.*?)<\/td>.*?<td>(.*?)<\/td>.*?<td>(\d+\.?\d*%)<\/td>/g);
-                const redemptionRates = [];
-                for (const match of redemptionRateMatches) {
-                    redemptionRates.push({
-                        amount: match[1].trim() || '--',
-                        period: match[2].trim(),
-                        rate: match[3].trim()
-                    });
+                // 3. 解析申购费率
+                const buyRateHtml = html.match(/申购费率[\s\S]*?<table[\s\S]*?<\/table>/)?.[0] || "";
+                const buyRows = buyRateHtml.matchAll(/<tr>[\s\S]*?<td>([^<]+)<\/td>[\s\S]*?<td>([^<]+)<\/td>/g);
+                let buyHtml = "";
+                for(let r of buyRows) {
+                    buyHtml += `<tr><td>${r[1]}</td><td>${r[2]}</td><td>${(Number(r[2])*0.1).toFixed(2)}%</td></tr>`;
                 }
+                if(!buyHtml) buyHtml = `<tr><td colspan="3">暂无数据</td></tr>`;
 
-                // 申购费率（简化示例，实际需解析申购费率表格）
-                const purchaseRates = [
-                    { amount: "小于100万元", period: "--", rate: "1.50%" },
-                    { amount: "100万元(含)-500万元", period: "--", rate: "1.00%" },
-                    { amount: "500万元(含)以上", period: "--", rate: "0.00%" }
-                ];
+                // 4. 解析赎回费率
+                const sellRateHtml = html.match(/赎回费率[\s\S]*?<table[\s\S]*?<\/table>/)?.[0] || "";
+                const sellRows = sellRateHtml.matchAll(/<tr>[\s\S]*?<td>([^<]+)<\/td>[\s\S]*?<td>([^<]+)<\/td>/g);
+                let sellHtml = "";
+                for(let r of sellRows) {
+                    sellHtml += `<tr><td>${r[1]}</td><td>${r[2]}</td></tr>`;
+                }
+                if(!sellHtml) sellHtml = `<tr><td colspan="2">暂无数据</td></tr>`;
 
-                // 4. 更新页面数据
-                document.getElementById('fundName').textContent = fundName;
-                document.getElementById('fundCodeResult').textContent = fundCode;
-                document.getElementById('minPurchase').textContent = minPurchaseMatch ? minPurchaseMatch[1] : '10.00元';
-                document.getElementById('minFixedPurchase').textContent = minFixedPurchaseMatch ? minFixedPurchaseMatch[1] : '10.00元';
-                document.getElementById('dailyLimit').textContent = dailyLimitMatch ? dailyLimitMatch[1] : '500万元';
-                document.getElementById('buyConfirmDate').textContent = buyConfirmMatch ? buyConfirmMatch[1] : 'T+1';
-                document.getElementById('sellConfirmDate').textContent = sellConfirmMatch ? sellConfirmMatch[1] : 'T+1';
+                // 渲染页面
+                document.getElementById("fundTitle").innerText = fundName;
+                document.getElementById("fCode").innerText = code;
+                document.getElementById("buyMin").innerText = buyMin;
+                document.getElementById("dtMin").innerText = dtMin;
+                document.getElementById("dayLimit").innerText = dayLimit;
+                document.getElementById("tBuy").innerText = tBuy;
+                document.getElementById("tSell").innerText = tSell;
+                document.getElementById("buyRateBody").innerHTML = buyHtml;
+                document.getElementById("sellRateBody").innerHTML = sellHtml;
 
-                // 填充申购费率表格
-                const purchaseTbody = document.getElementById('purchaseRateTable');
-                purchaseTbody.innerHTML = purchaseRates.map(r => `
-                    <tr>
-                        <td>${r.amount}</td>
-                        <td>${r.period}</td>
-                        <td>${r.rate}</td>
-                    </tr>
-                `).join('');
-
-                // 填充赎回费率表格
-                const redemptionTbody = document.getElementById('redemptionRateTable');
-                redemptionTbody.innerHTML = redemptionRates.length > 0 ? 
-                    redemptionRates.map(r => `
-                        <tr>
-                            <td>${r.amount}</td>
-                            <td>${r.period}</td>
-                            <td>${r.rate}</td>
-                        </tr>
-                    `).join('') : 
-                    `
-                    <tr>
-                        <td>--</td>
-                        <td>小于7天</td>
-                        <td>1.50%</td>
-                    </tr>
-                    <tr>
-                        <td>--</td>
-                        <td>大于等于7天，小于30天</td>
-                        <td>0.50%</td>
-                    </tr>
-                    <tr>
-                        <td>--</td>
-                        <td>大于等于30天</td>
-                        <td>0.00%</td>
-                    </tr>
-                    `;
-
-                document.getElementById('result').classList.remove('hidden');
-            } catch (error) {
-                console.error(error);
-                document.getElementById('errorMsg').textContent = `查询失败：${error.message}`;
-                document.getElementById('errorMsg').classList.remove('hidden');
+                document.getElementById("wrap").classList.remove("hidden");
+            } catch (e) {
+                console.error(e);
+                showErr("查询失败：" + e.message + "，请稍后重试");
             }
         }
+
+        function showErr(text) {
+            const el = document.getElementById("errTip");
+            if(text) {
+                el.innerText = text;
+                el.classList.remove("hidden");
+            } else {
+                el.classList.add("hidden");
+            }
+        }
+
+        // 回车查询
+        document.getElementById("kw").addEventListener("keydown",e=>{
+            if(e.key==="Enter") getFundInfo();
+        })
     </script>
 </body>
 </html>

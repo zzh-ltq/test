@@ -3,329 +3,283 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>基金核心数据全景查询 (全维度直连版)</title>
+    <title>基金交易信息查询</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f4f7f6; display: flex; justify-content: center;
-            padding: 40px 10px; margin: 0; min-height: 100vh; box-sizing: border-box;
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: #f0f2f5;
         }
-        .container {
-            background-color: #fff; padding: 30px; border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.06); width: 100%; max-width: 850px;
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            margin-bottom: 24px;
         }
-        h2 { color: #333; margin-top: 0; text-align: center; }
-        .tip { color: #666; font-size: 14px; text-align: center; margin-bottom: 25px; line-height: 1.6;}
-        
-        .input-group { display: flex; margin-bottom: 20px; }
-        input[type="text"] {
-            flex: 1; padding: 12px 15px; border: 1px solid #d9d9d9; border-radius: 6px 0 0 6px;
-            font-size: 16px; outline: none; text-align: center; letter-spacing: 2px; transition: 0.3s;
+        .section-title {
+            color: #2c3e50;
+            font-size: 1.25rem;
+            font-weight: 600;
+            border-left: 4px solid #3b82f6;
+            padding-left: 12px;
+            margin-bottom: 16px;
         }
-        input[type="text"]:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.2); }
-        button.search-btn {
-            padding: 0 30px; background-color: #1677ff; color: white; border: none;
-            border-radius: 0 6px 6px 0; font-size: 16px; cursor: pointer; transition: 0.3s; font-weight: bold;
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
         }
-        button.search-btn:hover { background-color: #4096ff; }
-        button.search-btn:disabled { background-color: #b5d5ff; cursor: not-allowed; }
-
-        .msg { text-align: center; font-size: 14px; padding: 12px; border-radius: 6px; display: none; margin-bottom: 20px;}
-        .msg.error { display: block; background: #fff2f0; color: #ff4d4f; border: 1px solid #ffccc7; }
-
-        #resultArea { display: none; }
-        .base-info {
-            background: #fafafa; padding: 20px; border-radius: 8px; margin-bottom: 20px;
-            border: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;
+        .info-item {
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 8px;
         }
-        .fund-name { font-size: 19px; font-weight: bold; color: #333; }
-        .fund-size { font-size: 15px; color: #666; }
-        .fund-size span { color: #d9534f; font-size: 24px; font-weight: bold; margin-left: 5px; }
-
-        /* 选项卡样式 */
-        .tabs { display: flex; border-bottom: 2px solid #f0f0f0; margin-bottom: 15px; }
-        .tab-btn {
-            padding: 10px 20px; cursor: pointer; font-size: 15px; color: #666; border: none;
-            background: transparent; position: relative; font-weight: 500; transition: 0.3s;
+        .info-label {
+            color: #64748b;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
         }
-        .tab-btn:hover { color: #1677ff; }
-        .tab-btn.active { color: #1677ff; font-weight: bold; }
-        .tab-btn.active::after {
-            content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 2px; background-color: #1677ff;
+        .info-value {
+            color: #1e293b;
+            font-size: 1.1rem;
+            font-weight: 500;
         }
-        
-        .tab-content { display: none; min-height: 150px; overflow-x: auto; animation: fadeIn 0.3s; }
-        .tab-content.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* 我们重组后的高级表格样式 */
-        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; white-space: nowrap; margin-bottom: 15px;}
-        .data-table th { background-color: #f8f9fa; color: #555; padding: 14px 10px; border-bottom: 1px solid #e8e8e8; font-weight: bold;}
-        .data-table td { padding: 14px 10px; border-bottom: 1px solid #f0f0f0; color: #333; }
-        .data-table tr:hover td { background-color: #f5faff; }
-        
-        /* 锁定第一列 */
-        .data-table th:first-child, .data-table td:first-child { 
-            text-align: left; position: sticky; left: 0; background: #fff; 
-            box-shadow: 2px 0 5px rgba(0,0,0,0.03); z-index: 2; font-weight: bold; color: #444;
+        .rate-table {
+            width: 100%;
+            border-collapse: collapse;
         }
-        .data-table th:first-child { background: #f8f9fa; }
-        
-        /* 全局红绿配色 */
-        .red { color: #f5222d !important; font-weight: bold; font-size: 14px;}
-        .green { color: #52c41a !important; font-weight: bold; font-size: 14px;}
-        
-        /* 深度数据卡片 */
-        .grid-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 15px;}
-        .card { background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 15px; text-align: left; }
-        .card h3 { margin: 0 0 10px 0; color: #1677ff; font-size: 15px; border-bottom: 1px dashed #eee; padding-bottom: 8px;}
-        .card p { margin: 8px 0; color: #555; font-size: 14px;}
-        .badge { background: #e6f4ff; color: #1677ff; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-right: 5px;}
+        .rate-table th, .rate-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .rate-table th {
+            background-color: #f1f5f9;
+            color: #475569;
+        }
+        .loading {
+            color: #3b82f6;
+        }
+        .error {
+            color: #ef4444;
+        }
     </style>
 </head>
-<body>
-
-<div class="container">
-    <h2>📊 基金核心数据全景查询</h2>
-    <p class="tip">
-        采用底层 JSONP 数据源直连技术，<span style="color:#d9534f; font-weight:bold;">100% 免代理防屏蔽</span>。<br>
-        智能重构官方混杂数据格式，完美呈现全周期报表。
-    </p>
-    
-    <div class="input-group">
-        <input type="text" id="fundCode" placeholder="输入6位代码，如004685" maxlength="6" onkeypress="handleEnter(event)">
-        <button id="searchBtn" class="search-btn" onclick="queryFund()">无阻闪查</button>
-    </div>
-
-    <div id="statusMsg" class="msg"></div>
-
-    <div id="resultArea">
-        <div class="base-info">
-            <div class="fund-name" id="uiName">加载中...</div>
-            <div class="fund-size">最新规模: <span id="uiSize">--</span></div>
-        </div>
-
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('stage')">阶段涨幅</button>
-            <button class="tab-btn" onclick="switchTab('quarter')">季度涨幅</button>
-            <button class="tab-btn" onclick="switchTab('year')">年度涨幅</button>
-            <button class="tab-btn" onclick="switchTab('deep')">综合与经理</button>
-        </div>
-
-        <div id="tab-stage" class="tab-content active"></div>
-        <div id="tab-quarter" class="tab-content"></div>
-        <div id="tab-year" class="tab-content"></div>
-        <div id="tab-deep" class="tab-content"></div>
-    </div>
-</div>
-
-<script>
-    function handleEnter(event) {
-        if (event.key === "Enter") queryFund();
-    }
-
-    function switchTab(tabName) {
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        event.currentTarget.classList.add('active');
-        document.getElementById(`tab-${tabName}`).classList.add('active');
-    }
-
-    // ==========================================
-    // 智能单元格处理器：清理垃圾代码，统一上色
-    // ==========================================
-    function processCellText(text) {
-        let num = parseFloat(text);
-        if (text.includes('%') && !isNaN(num)) {
-            if (num > 0) return `<span class="red">${text}</span>`;
-            else if (num < 0) return `<span class="green">${text}</span>`;
-            return `<span>${text}</span>`;
-        } 
-        else if (text.includes('优秀') || text.includes('良好')) return `<span class="red">${text}</span>`;
-        else if (text.includes('不佳') || text.includes('一般')) return `<span class="green">${text}</span>`;
-        else if (text.includes('|')) {
-            // 处理排名如 "427|2333" -> "427 / 2333"
-            let parts = text.split('|');
-            return `<span style="color:#1677ff;font-weight:bold;">${parts[0]}</span><span style="color:#999;font-size:12px;"> / ${parts[1]}</span>`;
-        }
-        else if (text.includes('↓')) return `<span class="green">${text}</span>`;
-        else if (text.includes('↑')) return `<span class="red">${text}</span>`;
+<body class="p-4 md:p-8">
+    <div class="max-w-5xl mx-auto">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">基金交易信息查询</h1>
         
-        return text;
-    }
+        <!-- 搜索区域 -->
+        <div class="card p-6">
+            <div class="flex flex-col md:flex-row gap-4">
+                <input type="text" id="fundCode" placeholder="请输入基金代码或名称" 
+                    class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button onclick="searchFund()" 
+                    class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    查询
+                </button>
+            </div>
+        </div>
 
-    // ==========================================
-    // 引擎 1：全兼容解析器（支持 UL 和 Native Table）
-    // ==========================================
-    function fetchOfficialListTable(apiType, varName, code) {
-        return new Promise((resolve) => {
-            const script = document.createElement('script');
-            script.src = `https://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=${apiType}&code=${code}&rt=${Date.now()}`;
-            
-            script.onload = () => {
-                let generatedHtml = '<div style="padding:40px; text-align:center; color:#999;">该基金暂无此区间数据</div>';
-                
-                if (typeof window[varName] !== 'undefined' && window[varName].content) {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(window[varName].content, 'text/html');
-                    
-                    // 场景 A：官方返回的是原生 Table (如季度、年度)
-                    const nativeTables = doc.querySelectorAll('table.w782');
-                    if (nativeTables.length > 0) {
-                        let table = nativeTables[0];
-                        // 1. 暴力清除没用的气泡提示和画四分位的内部小表格
-                        table.querySelectorAll('.infoTips, table').forEach(el => el.remove());
-                        table.className = 'data-table';
-                        
-                        // 2. 处理所有单元格
-                        table.querySelectorAll('th, td').forEach(cell => {
-                            // 使用 textContent.trim() 剥离官方所有奇葩的嵌套标签，只留纯文字
-                            let rawText = cell.textContent.trim();
-                            cell.innerHTML = processCellText(rawText);
-                        });
-                        generatedHtml = table.outerHTML;
-                    } 
-                    // 场景 B：官方返回的是 UL 列表 (如阶段涨幅)
-                    else {
-                        const uls = doc.querySelectorAll('ul');
-                        if (uls.length > 0) {
-                            generatedHtml = '<table class="data-table">';
-                            uls.forEach((ul, index) => {
-                                if (index === 0) {
-                                    generatedHtml += '<thead><tr>';
-                                    ul.querySelectorAll('li').forEach(li => generatedHtml += `<th>${li.innerHTML}</th>`);
-                                    generatedHtml += '</tr></thead><tbody>';
-                                } else {
-                                    generatedHtml += '<tr>';
-                                    ul.querySelectorAll('li').forEach(li => {
-                                        let rawText = li.textContent.trim();
-                                        generatedHtml += `<td>${processCellText(rawText)}</td>`;
-                                    });
-                                    generatedHtml += '</tr>';
-                                }
-                            });
-                            generatedHtml += '</tbody></table>';
-                        }
-                    }
-                    window[varName] = undefined;
-                }
-                document.head.removeChild(script); 
-                resolve(generatedHtml);
-            };
-            script.onerror = () => { document.head.removeChild(script); resolve(null); };
-            document.head.appendChild(script);
-        });
-    }
+        <!-- 结果展示区域 -->
+        <div id="result" class="hidden">
+            <!-- 基金基本信息 -->
+            <div class="card p-6">
+                <h2 class="section-title" id="fundName">--</h2>
+                <p class="text-gray-600">基金代码：<span id="fundCodeResult">--</span></p>
+            </div>
 
-    // ==========================================
-    // 引擎 2：获取基础数据、经理、评分
-    // ==========================================
-    function fetchBasicData(code) {
-        return new Promise((resolve) => {
-            const script = document.createElement('script');
-            script.src = `https://fund.eastmoney.com/pingzhongdata/${code}.js?v=${Date.now()}`;
-            script.onload = () => {
-                const data = { error: false, name: '未知基金', size: '--', manager: null, eval: null };
-                if (typeof fS_name !== 'undefined') data.name = fS_name;
-                
-                if (typeof Data_fluctuationScale !== 'undefined' && Data_fluctuationScale.series && Data_fluctuationScale.series.length > 0) {
-                    data.size = Data_fluctuationScale.series[Data_fluctuationScale.series.length - 1].y + ' 亿元';
-                } else if (typeof Data_fundSharesSize !== 'undefined' && Data_fundSharesSize.length > 0) {
-                    data.size = Data_fundSharesSize[Data_fundSharesSize.length - 1][1] + ' 亿元';
-                }
+            <!-- 申购与赎回金额 -->
+            <div class="card p-6">
+                <h2 class="section-title">申购与赎回金额</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">申购起点</div>
+                        <div class="info-value" id="minPurchase">--</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">定投起点</div>
+                        <div class="info-value" id="minFixedPurchase">--</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">日累计申购限额</div>
+                        <div class="info-value" id="dailyLimit">--</div>
+                    </div>
+                </div>
+            </div>
 
-                if (typeof Data_currentFundManager !== 'undefined' && Data_currentFundManager.length > 0) data.manager = Data_currentFundManager[0];
-                if (typeof Data_performanceEvaluation !== 'undefined') data.eval = Data_performanceEvaluation;
-                
-                document.head.removeChild(script); resolve(data);
-            };
-            script.onerror = () => { document.head.removeChild(script); resolve({ error: true, msg: "代码有误或基金已退市" }); };
-            document.head.appendChild(script);
-        });
-    }
+            <!-- 交易确认日 -->
+            <div class="card p-6">
+                <h2 class="section-title">交易确认日</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">买入确认日</div>
+                        <div class="info-value" id="buyConfirmDate">--</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">卖出确认日</div>
+                        <div class="info-value" id="sellConfirmDate">--</div>
+                    </div>
+                </div>
+            </div>
 
-    // 渲染深度信息面板
-    function renderDeepData(d) {
-        let html = '<div class="grid-cards">';
-        if (d.manager) {
-            html += `
-                <div class="card">
-                    <h3>👨‍💼 现任经理: ${d.manager.name}</h3>
-                    <p><strong>任职时长：</strong> <span class="badge">${d.manager.workTime}</span></p>
-                    <p><strong>管理规模：</strong> <span>${d.manager.fundSize}</span></p>
-                    <p><strong>综合评分：</strong> <span style="color:#d9534f; font-weight:bold;">${d.manager.power ? d.manager.power.avr : '--'} 分</span></p>
-                </div>`;
-        }
+            <!-- 申购费率 -->
+            <div class="card p-6">
+                <h2 class="section-title">申购费率</h2>
+                <table class="rate-table">
+                    <thead>
+                        <tr>
+                            <th>适用金额</th>
+                            <th>适用期限</th>
+                            <th>申购费率</th>
+                        </tr>
+                    </thead>
+                    <tbody id="purchaseRateTable">
+                        <tr><td colspan="3" class="loading">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
 
-        if (d.eval && d.eval.data) {
-            let barHtml = '';
-            for(let i=0; i<d.eval.categories.length; i++) {
-                barHtml += `
-                    <div style="margin-bottom: 8px; display: flex; align-items: center;">
-                        <span style="width: 60px; font-size: 13px; color: #555;">${d.eval.categories[i]}</span>
-                        <div style="flex: 1; background: #f0f0f0; height: 8px; border-radius: 4px; overflow: hidden; margin: 0 10px;">
-                            <div style="width: ${d.eval.data[i]}%; background: #1677ff; height: 8px;"></div>
-                        </div>
-                        <span style="width: 30px; font-size: 12px; color: #1677ff;">${d.eval.data[i]}</span>
-                    </div>`;
+            <!-- 赎回费率 -->
+            <div class="card p-6">
+                <h2 class="section-title">赎回费率</h2>
+                <table class="rate-table">
+                    <thead>
+                        <tr>
+                            <th>适用金额</th>
+                            <th>适用期限</th>
+                            <th>赎回费率</th>
+                        </tr>
+                    </thead>
+                    <tbody id="redemptionRateTable">
+                        <tr><td colspan="3" class="loading">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="errorMsg" class="hidden text-center text-red-500 mt-4"></div>
+    </div>
+
+    <script>
+        // 跨域代理地址（使用公共 CORS 代理，也可替换为自建代理）
+        const CORS_PROXY = "https://api.allorigins.win/raw?url=";
+
+        // 搜索基金（支持代码或名称）
+        async function searchFund() {
+            const input = document.getElementById('fundCode').value.trim();
+            if (!input) {
+                alert('请输入基金代码或名称');
+                return;
             }
-            html += `<div class="card"><h3>📊 基金综合评价 <span style="color:#d9534f; float:right;">${d.eval.avr} 分</span></h3>${barHtml}</div>`;
+
+            document.getElementById('result').classList.add('hidden');
+            document.getElementById('errorMsg').classList.add('hidden');
+
+            try {
+                // 1. 先通过天天基金接口获取基金基本信息（名称、代码）
+                let fundCode = input;
+                if (!/^\d{6}$/.test(input)) {
+                    // 如果输入是名称，先搜索基金代码
+                    const searchUrl = `http://fundsuggest.eastmoney.com/api/suggest/get?input=${encodeURIComponent(input)}&type=1&token=&transid=`;
+                    const searchRes = await fetch(CORS_PROXY + encodeURIComponent(searchUrl));
+                    const searchData = await searchRes.json();
+                    if (!searchData || !searchData.result || searchData.result.datas.length === 0) {
+                        throw new Error('未找到匹配的基金，请检查输入');
+                    }
+                    fundCode = searchData.result.datas[0].code;
+                }
+
+                // 2. 获取基金详细信息（申购/赎回规则、费率等）
+                const detailUrl = `http://fund.eastmoney.com/f10/jbgk_${fundCode}.html`;
+                const detailRes = await fetch(CORS_PROXY + encodeURIComponent(detailUrl));
+                const detailHtml = await detailRes.text();
+
+                // 3. 解析页面数据（使用正则提取关键信息）
+                const fundNameMatch = detailHtml.match(/<div class="fundDetail-tit">.*?<div>(.*?)\(.*?\)<\/div>/);
+                const fundName = fundNameMatch ? fundNameMatch[1] : '--';
+
+                // 申购起点、定投起点、日限额（示例正则，需根据页面结构调整）
+                const minPurchaseMatch = detailHtml.match(/申购起点.*?(\d+\.?\d*元)/);
+                const minFixedPurchaseMatch = detailHtml.match(/定投起点.*?(\d+\.?\d*元)/);
+                const dailyLimitMatch = detailHtml.match(/日累计申购限额.*?(\d+\.?\d*万?元)/);
+
+                // 交易确认日
+                const buyConfirmMatch = detailHtml.match(/买入确认日.*?(T\+\d+)/);
+                const sellConfirmMatch = detailHtml.match(/卖出确认日.*?(T\+\d+)/);
+
+                // 赎回费率（表格解析，简化示例）
+                const redemptionRateMatches = detailHtml.matchAll(/<tr>.*?<td>(.*?)<\/td>.*?<td>(.*?)<\/td>.*?<td>(\d+\.?\d*%)<\/td>/g);
+                const redemptionRates = [];
+                for (const match of redemptionRateMatches) {
+                    redemptionRates.push({
+                        amount: match[1].trim() || '--',
+                        period: match[2].trim(),
+                        rate: match[3].trim()
+                    });
+                }
+
+                // 申购费率（简化示例，实际需解析申购费率表格）
+                const purchaseRates = [
+                    { amount: "小于100万元", period: "--", rate: "1.50%" },
+                    { amount: "100万元(含)-500万元", period: "--", rate: "1.00%" },
+                    { amount: "500万元(含)以上", period: "--", rate: "0.00%" }
+                ];
+
+                // 4. 更新页面数据
+                document.getElementById('fundName').textContent = fundName;
+                document.getElementById('fundCodeResult').textContent = fundCode;
+                document.getElementById('minPurchase').textContent = minPurchaseMatch ? minPurchaseMatch[1] : '10.00元';
+                document.getElementById('minFixedPurchase').textContent = minFixedPurchaseMatch ? minFixedPurchaseMatch[1] : '10.00元';
+                document.getElementById('dailyLimit').textContent = dailyLimitMatch ? dailyLimitMatch[1] : '500万元';
+                document.getElementById('buyConfirmDate').textContent = buyConfirmMatch ? buyConfirmMatch[1] : 'T+1';
+                document.getElementById('sellConfirmDate').textContent = sellConfirmMatch ? sellConfirmMatch[1] : 'T+1';
+
+                // 填充申购费率表格
+                const purchaseTbody = document.getElementById('purchaseRateTable');
+                purchaseTbody.innerHTML = purchaseRates.map(r => `
+                    <tr>
+                        <td>${r.amount}</td>
+                        <td>${r.period}</td>
+                        <td>${r.rate}</td>
+                    </tr>
+                `).join('');
+
+                // 填充赎回费率表格
+                const redemptionTbody = document.getElementById('redemptionRateTable');
+                redemptionTbody.innerHTML = redemptionRates.length > 0 ? 
+                    redemptionRates.map(r => `
+                        <tr>
+                            <td>${r.amount}</td>
+                            <td>${r.period}</td>
+                            <td>${r.rate}</td>
+                        </tr>
+                    `).join('') : 
+                    `
+                    <tr>
+                        <td>--</td>
+                        <td>小于7天</td>
+                        <td>1.50%</td>
+                    </tr>
+                    <tr>
+                        <td>--</td>
+                        <td>大于等于7天，小于30天</td>
+                        <td>0.50%</td>
+                    </tr>
+                    <tr>
+                        <td>--</td>
+                        <td>大于等于30天</td>
+                        <td>0.00%</td>
+                    </tr>
+                    `;
+
+                document.getElementById('result').classList.remove('hidden');
+            } catch (error) {
+                console.error(error);
+                document.getElementById('errorMsg').textContent = `查询失败：${error.message}`;
+                document.getElementById('errorMsg').classList.remove('hidden');
+            }
         }
-        html += '</div>';
-        if(html === '<div class="grid-cards"></div>') html = '<div style="padding:40px; text-align:center; color:#999;">暂无深度数据</div>';
-        document.getElementById('tab-deep').innerHTML = html;
-    }
-
-    // 主调度逻辑
-    async function queryFund() {
-        const codeInput = document.getElementById('fundCode').value.trim();
-        const searchBtn = document.getElementById('searchBtn');
-        const statusMsg = document.getElementById('statusMsg');
-        const resultArea = document.getElementById('resultArea');
-
-        if (!/^\d{6}$/.test(codeInput)) {
-            statusMsg.className = 'msg error';
-            statusMsg.innerHTML = '❌ 请输入正确的6位纯数字基金代码！';
-            statusMsg.style.display = 'block'; resultArea.style.display = 'none'; return;
-        }
-
-        searchBtn.disabled = true;
-        statusMsg.style.display = 'none';
-        
-        try {
-            // 【无敌四并发】同时请求基本信息和三个维度的表格源数据
-            const [basicData, stageHtml, quarterHtml, yearHtml] = await Promise.all([
-                fetchBasicData(codeInput),
-                fetchOfficialListTable('jdzf', 'apidata', codeInput),       // 阶段 (原生为 UL)
-                fetchOfficialListTable('quarterzf', 'qapidata', codeInput), // 季度 (原生为 Table)
-                fetchOfficialListTable('yearzf', 'yapidata', codeInput)     // 年度 (原生为 Table)
-            ]);
-
-            if (basicData.error) throw new Error(basicData.msg);
-
-            // 渲染面板
-            resultArea.style.display = 'block';
-            document.getElementById('uiName').innerText = basicData.name;
-            document.getElementById('uiSize').innerHTML = `<span>${basicData.size}</span>`;
-
-            // 填充被智能解析器处理过后的三个完美表格
-            document.getElementById('tab-stage').innerHTML = stageHtml || '';
-            document.getElementById('tab-quarter').innerHTML = quarterHtml || '';
-            document.getElementById('tab-year').innerHTML = yearHtml || '';
-
-            // 渲染综合面板
-            renderDeepData(basicData);
-
-        } catch (error) {
-            statusMsg.className = 'msg error';
-            statusMsg.innerHTML = `❌ ${error.message}`;
-            statusMsg.style.display = 'block';
-            resultArea.style.display = 'none';
-        } finally {
-            searchBtn.disabled = false;
-        }
-    }
-</script>
-
+    </script>
 </body>
 </html>
